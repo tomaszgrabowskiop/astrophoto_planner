@@ -1,0 +1,30 @@
+# Core data science
+pandas>=2.0.0
+numpy>=1.24.0
+
+# PDF generation
+reportlab>=4.0.0
+pypdf>=4.0.0
+
+# Astronomy
+astropy>=6.0.0
+astroplan>=0.10
+astroquery>=0.4.4
+scipy>=1.12.0
+
+# Plotting & maps
+matplotlib>=3.8.0
+starplot>=0.4.0
+
+# Parallel processing & utils
+tqdm>=4.65.0
+networkx>=3.0
+
+# Timezones
+pytz>=2023.3
+
+# Typowanie (optional, ale zalecane)
+typeshed-client  # lub typing-extensions>=4.0
+
+# macOS/Python 3.13 kompatybilne
+--index-url https://pypi.org/simple/
