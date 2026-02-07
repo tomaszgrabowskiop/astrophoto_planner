@@ -20,3 +20,78 @@ Projekt wymaga Pythona 3.10+ oraz następujących bibliotek:
 
 ```bash
 pip install pandas numpy astropy astroplan matplotlib reportlab pypdf tqdm astroquery starplot networkx
+
+> **Uwaga:** Biblioteka `starplot` może wymagać dodatkowej konfiguracji (pobrania danych gwiazd).
+
+## 📂 Struktura plików i dane wejściowe
+
+Aby rozpocząć, upewnij się, że posiadasz plik źródłowy dla katalogu NGC (używany w kroku 0):
+
+*   `OpenNGC/NGC.csv` - plik CSV z danymi OpenNGC (wymagany przez skrypt `0_opracuj_katalog_ngc.py`).
+
+## ⚙️ Instrukcja użycia (Krok po kroku)
+
+Skrypty są ponumerowane, aby ułatwić zachowanie odpowiedniej kolejności wykonywania operacji.
+
+### Krok 0: Przygotowanie bazy NGC
+Uruchom: `python 0_opracuj_katalog_ngc.py`
+*   Parsuje surowy plik CSV z OpenNGC.
+*   Tworzy plik `updated_ngc.csv`.
+
+### Krok 1: Pobieranie i unifikacja katalogów
+Uruchom: `python 1_generuj_katalog_astro.py`
+*   Pobiera dane z serwisu VizieR (Sharpless, Barnard, LDN, etc.).
+*   Łączy je z bazą NGC.
+*   Wykonuje "Smart Merge" (łączenie duplikatów i obiektów blisko siebie).
+*   Tworzy plik `katalog_astro_full.csv`.
+*   *Opcjonalnie: Możesz uruchomić `analiza_katalog.py`, aby sprawdzić statystyki bazy.*
+
+### Krok 2: Konfiguracja i selekcja obiektów
+Uruchom: `python 2_ograniczenie_katalogu.py`
+*   **Interaktywny skrypt:** Zapyta Cię o lokalizację, parametry teleskopu/kamery, filtry (Ha/OIII) oraz minimalną wysokość obiektu.
+*   Filtruje bazę pod kątem Twojego sprzętu.
+*   Tworzy plik konfiguracyjny `vis_data.json` zawierający kandydatów do atlasu.
+
+### Krok 3: Silnik obliczeniowy (Engine)
+Uruchom: `python 3_wyliczenia.py`
+*   Wykonuje ciężkie obliczenia astronomiczne (równolegle na wielu rdzeniach CPU).
+*   Wylicza dokładną widoczność minuta po minucie dla całego roku.
+*   Zapisuje wyniki do `observing_data.pkl`.
+
+### Krok 4: Plan roczny i wybór wariantów
+Uruchom: `python 4_plan_roczny.py`
+*   Analizuje dane z kroku 3.
+*   Przydziela obiekty do miesięcy (Warianty A, B, C), aby zbalansować sesje obserwacyjne.
+*   Generuje **Część 1 PDF**: `Astrophotography_Planner_2026_1.pdf` (wykresy roczne).
+*   Aktualizuje `vis_data.json` o flagę `selected`.
+
+### Krok 5: Generowanie map nieba
+Uruchom: `python 5_fov_and_maps.py`
+*   Korzysta z biblioteki `starplot`.
+*   Generuje pliki PNG w katalogu `starplots/`:
+    *   Kadry optyczne (symulacja kamery).
+    *   Mapy kontekstowe (szersze pole widzenia).
+
+### Krok 6: Generowanie stron obiektów
+Uruchom: `python 6_drukuj_strony_obiektów.py`
+*   Składa szczegółowe strony dla każdego wybranego obiektu.
+*   Zawiera wykresy wysokości w noc nowiu, wykres roczny, statystyki godzinowe oraz wygenerowane mapy.
+*   Tworzy **Część 2 PDF**: `Astrophotography_Planner_2026_2.pdf`.
+
+### Krok 7: Finalizacja
+Uruchom: `python 7_połącz_pliki_pdf.py`
+*   Generuje stronę tytułową.
+*   Łączy część 1 i część 2 w jeden plik.
+*   **Wynik końcowy:** `Astrophotography_Planner_2026.pdf`.
+
+---
+
+## 📝 Uwagi dodatkowe
+
+*   **Czcionki:** Skrypt `7_połącz_pliki_pdf.py` jest skonfigurowany pod system macOS (`/System/Library/Fonts/Helvetica.ttc`). Jeśli używasz Windows lub Linux, edytuj ścieżkę do czcionek w tym pliku.
+*   **Wydajność:** Krok 3 i 5 wykorzystują wielowątkowość (`multiprocessing`). Generowanie map może zająć kilka minut w zależności od liczby obiektów.
+*   **Lokalizacja:** Domyślnie ustawiony jest rok 2026 i lokalizacja w Polsce. Można to zmienić w trakcie działania skryptu nr 2 lub edytując stałe w plikach.
+
+## 📄 Licencja
+
+Projekt do użytku własnego. Korzysta z danych OpenNGC oraz serwisów VizieR.
