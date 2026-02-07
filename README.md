@@ -123,7 +123,7 @@ python 5_fov_and_maps.py
 Uruchom: [file:1]
 
 ```bash
-python 6_drukuj_strony_obiektów.py
+python 6_drukuj_strony_obiektow.py
 ```
 
 - Składa szczegółowe strony dla każdego wybranego obiektu. [file:1]
@@ -135,7 +135,7 @@ python 6_drukuj_strony_obiektów.py
 Uruchom: [file:1]
 
 ```bash
-python 7_połącz_pliki_pdf.py
+python 7_polacz_pliki_pdf.py
 ```
 
 - Generuje stronę tytułową. [file:1]
@@ -146,7 +146,7 @@ python 7_połącz_pliki_pdf.py
 
 ## 📝 Uwagi dodatkowe
 
-- Czcionki: skrypt `7_połącz_pliki_pdf.py` jest skonfigurowany pod system macOS (`/System/Library/Fonts/Helvetica.ttc`); na Windows lub Linux należy edytować ścieżkę do czcionek. [file:1]
+- Czcionki: skrypt `7_polacz_pliki_pdf.py` jest skonfigurowany pod system macOS (`/System/Library/Fonts/Helvetica.ttc`); na Windows lub Linux należy edytować ścieżkę do czcionek. [file:1]
 - Wydajność: krok 3 i 5 wykorzystują wielowątkowość (`multiprocessing`); generowanie map może zająć kilka minut w zależności od liczby obiektów. [file:1]
 - Lokalizacja: domyślnie ustawiony jest rok 2026 i lokalizacja w Polsce; można to zmienić w trakcie działania skryptu nr 2 lub edytując stałe w plikach. [file:1]
 
