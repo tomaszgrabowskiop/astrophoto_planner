@@ -8,9 +8,29 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord, EarthLocation
 from astropy.time import Time
 from astroplan import Observer
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Tuple, List, Dict, Any
+
+"""
+	Wyciszamy ostrzeżenia AstroPy. Dotyczą: 
+		
+	• ErfaWarning: "dubious year (Note X)": ERFA (silnik metryk czasowych w Astropy) 
+	oznacza rok jako „wątpliwy”, gdy brakuje dokładnych danych o skokach sekundowych
+	 i modelu czasu dla przyszłych lat.
+	• Tried to get polar motions for times after IERS data is valid: Astropy nie ma aktualnych 
+	tabel IERS (ruch bieguna, UT1–UTC), więc używa średnich 50‑letnich
+	 – dokładność spada do poziomu łuku sekundowego.
+	
+	Możesz zakomentować poniższe linie kodu, żeby widziec ostrzeżenia. 
+"""
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+from erfa import ErfaWarning
+
+warnings.filterwarnings("ignore", category=ErfaWarning)
+warnings.filterwarnings("ignore", category=AstropyWarning)
 
 # =====================================================
 # CONFIGURATION
@@ -648,6 +668,31 @@ class FOVCalculator:
         return min_size_deg * 60.0
 
 # =====================================================
+# YEAR  
+# =====================================================
+class YearManager:
+    def select_interactive(self) -> int:
+        current_year = date.today().year
+        print("=" * 141)
+        print("ROK OBSERWACJI")
+        print("=" * 141)
+        
+        year_str = input(f"[Enter={current_year} lub wpisz wybrany pomiędzy 2000 a 2100]: ").strip()
+        if year_str:
+            try:
+                year = int(year_str)
+                if year < 2000 or year > 2100:
+                    raise ValueError()
+            except:
+                print(f"Nieprawidłowy, używam {current_year}")
+                year = current_year
+        else:
+            year = current_year
+        
+        print(f"✓ Rok: {year}")
+        return year
+
+# =====================================================
 # LOCATION MANAGER
 # =====================================================
 
@@ -656,8 +701,8 @@ class LocationManager:
         print("=" * 141)
         print("KROK 1: WYBÓR LOKALIZACJI")
         print("=" * 141)
-        print("1. Poznań, Poland")
-        print("2. Kraków, Poland")
+        print("1. Poznań, Polska")
+        print("2. Kraków, Polska")
         print("3. Wpisz lokalizację\n")
 
         choice = input(r"[1/2/3, domyślnie 1]: ").strip() or "1"
@@ -667,7 +712,7 @@ class LocationManager:
                 "lat": 52.4095,
                 "lon": 16.9319,
                 "tz": "Europe/Warsaw",
-                "name": "Poznań, Poland",
+                "name": "Poznań, Polska",
             }
             print(
                 f"\n✓ Wybrano {loc['name']} ({loc['lat']}°N, {loc['lon']}°E)"
@@ -679,14 +724,14 @@ class LocationManager:
                 "lat": 50.0647,
                 "lon": 19.9450,
                 "tz": "Europe/Warsaw",
-                "name": "Kraków, Poland",
+                "name": "Kraków, Polska",
             }
             print(
                 f"\n✓ Wybrano {loc['name']} ({loc['lat']}°N, {loc['lon']}°E)"
             )
             return loc
 
-        city = input("Podaj nazwę miasta (adres obiektu): ").strip()
+        city = input("Podaj lokalizację (pisz wielką literą, działa lepiej, np. Toruń, Polska): ").strip()
         if not city:
             print("Brak nazwy, używam domyślnej: Poznań.")
             return {
@@ -717,7 +762,7 @@ class LocationManager:
                 "lat": 52.4095,
                 "lon": 16.9319,
                 "tz": "Europe/Warsaw",
-                "name": "Poznań, Poland",
+                "name": "Poznań, Polska",
             }
 
 # =====================================================
@@ -1236,7 +1281,8 @@ def ensure_unique_ids_in_output(objects: List[Dict[str, Any]]) -> None:
 # =====================================================
 
 def main():
-    year = 2026
+    year_mgr = YearManager()
+    year = year_mgr.select_interactive()
 
     locmgr = LocationManager()
     location = locmgr.select_interactive()
@@ -1386,7 +1432,7 @@ def main():
     print("KROK 4: OPTYMALIZACJA STRON ATLASU (CLUSTERING)")
     print("=" * 141)
 
-    # --- NOWA LOGIKA SORTOWANIA (Democja słabych danych) ---
+    # --- LOGIKA SORTOWANIA (Democja słabych danych) ---
 
     # 1. Sprawdź, czy obiekt jest "Sławny" (M, C, H lub posiada Common Name)
     def check_is_famous(row):
