@@ -14,13 +14,13 @@ from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Stałe siatki (jak w oryginale)
-H_START = 14.0  # 14:00
-H_END = 31.0    # 07:00
-H_RANGE = H_END - H_START  # 14h
-N_SAMPLES = int(H_RANGE * 60 / 5)  # 14h * 60 / 15 = 56: siatka obecności na niebie co 15 minut.
+H_START = 14.0   # 14:00
+H_END = 31.0      # 07:00
+H_RANGE = H_END - H_START  # 17 h
+N_SAMPLES = int(H_RANGE * 60 / 5)  # 17h * 60 / 5 = 204: siatka obecności na niebie co 5 minut.
 
-# Zredukowana rozdzielczość dla get_crossings (co 5 min)
-CROSSING_SAMPLES = 1440 # co minutę
+# Rozdzielczość dla get_crossings 
+CROSSING_SAMPLES = 1440 # co minutę na dobę
 
 
 def load_vis_data(path: str = "vis_data.json"):
@@ -113,7 +113,7 @@ def process_single_object(
     results = []
 
     # --- 1. Pełna siatka czasu nocy dla wszystkich dni tego obiektu ---
-    # t_noon + offsety godzinowe (2..19h => 17:00–07:00 lokalnie)
+    # t_noon + offsety godzinowe (2..19h => 14:00–07:00 lokalnie)
     # shape: (ndays, N_SAMPLES)
     t_grid = days_noon[:, None] + t_night_offsets_hours[None, :] * u.hour
 
@@ -140,14 +140,14 @@ def process_single_object(
         # maska jakościowa: alt > obj_min_alt_deg, Sun < sun_alt_limit_deg
         quality_mask = (o_alt > obj_min_alt_deg) & (s_alt < sun_alt_limit_deg)
 
-        # tranzit względny (maksimum alt w skali 0–14)
+        # tranzit względny (maksimum alt w skali 0–17)
         transit_rel = np.argmax(o_alt) * (H_RANGE / N_SAMPLES)
 
         # sumaryczne godziny jakościowe
         q_hours = np.sum(quality_mask) * (H_RANGE / N_SAMPLES)
         m_hours = np.sum(quality_mask & (m_alt < 0.0)) * (H_RANGE / N_SAMPLES)
 
-        # ciągłe segmenty jakościowe w skali 0–14
+        # ciągłe segmenty jakościowe w skali 0–17
         qual_segments = mask_to_segments(quality_mask)
 
         results.append({
