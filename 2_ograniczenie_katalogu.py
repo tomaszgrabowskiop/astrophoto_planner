@@ -760,7 +760,7 @@ class LocationManager:
             }
             print(
                 f"\n✓ Znaleziono {loc['name']} ({loc['lat']:.4f}°N, {loc['lon']:.4f}°E), "
-                f"strefa  czasowa dla tej lokalizacji: {tz_name}"
+                f"strefa czasowa dla tej lokalizacji: {tz_name}"
             )
             return loc
         except Exception as e:
