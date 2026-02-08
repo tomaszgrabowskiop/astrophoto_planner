@@ -33,6 +33,13 @@ warnings.filterwarnings("ignore", category=ErfaWarning)
 warnings.filterwarnings("ignore", category=AstropyWarning)
 
 # =====================================================
+# SSL FIX (macOS + oficjalny Python nie ma certyfikatów)
+# =====================================================
+import ssl
+import certifi
+ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
+# =====================================================
 # CONFIGURATION
 # =====================================================
 

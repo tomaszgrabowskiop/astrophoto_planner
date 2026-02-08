@@ -10,6 +10,11 @@ from analiza_katalog import analyze_catalog
 
 warnings.filterwarnings('ignore')
 
+# === SSL FIX (macOS + oficjalny Python nie ma certyfikatów) ===
+import ssl
+import certifi
+ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
 # === KONFIGURACJA DOMYŚLNA ===
 RA_DEC_TOLERANCE_ARCMIN = 1.2  # Domyślnie 0.02 stopnia
 OUTPUT_FILENAME = "katalog_astro_full.csv"
