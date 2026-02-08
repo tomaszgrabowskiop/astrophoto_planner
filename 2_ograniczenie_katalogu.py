@@ -11,7 +11,7 @@ from astroplan import Observer
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Tuple, List, Dict, Any
-
+from timezonefinder import TimezoneFinder
 """
 	Wyciszamy ostrzeżenia AstroPy. Dotyczą: 
 		
@@ -746,14 +746,21 @@ class LocationManager:
             loc_astro = EarthLocation.of_address(city)
             lat = loc_astro.lat.to(u.deg).value
             lon = loc_astro.lon.to(u.deg).value
+            
+            tf = TimezoneFinder()
+            tz_name = tf.timezone_at(lng=lon, lat=lat)
+            if  tz_name is None:
+                tz_name ="Europe/Warsaw"
+                
             loc = {
                 "lat": lat,
                 "lon": lon,
-                "tz": "Europe/Warsaw",
+                "tz": tz_name,
                 "name": city,
             }
             print(
-                f"\n✓ Znaleziono {loc['name']} ({loc['lat']:.4f}°N, {loc['lon']:.4f}°E)"
+                f"\n✓ Znaleziono {loc['name']} ({loc['lat']:.4f}°N, {loc['lon']:.4f}°E), "
+                f"strefa  czasowa dla tej lokalizacji: {tz_name}"
             )
             return loc
         except Exception as e:
