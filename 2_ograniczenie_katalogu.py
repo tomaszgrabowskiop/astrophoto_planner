@@ -60,6 +60,95 @@ class Config:
 CAT_ORDER = ["ngc", "ic", "sh2", "rcw", "lbn", "ced", "pgc", "barn", "ldn"]
 
 # =====================================================
+# HELPER FUNCTIONS (PARSING FAMOUS CATALOGS)
+# =====================================================
+
+def is_messier_token(token: str) -> bool:
+    """
+    Sprawdza, czy token jest poprawnym numerem Messiera: M1–M110.
+    Akceptuje warianty typu 'M1', 'M 1', 'm31'.
+    """
+    if token is None:
+        return False
+    t = str(token).strip().upper()
+    if not t.startswith("M") or len(t) <= 1:
+        return False
+
+    rest = t[1:].strip()
+    if not rest.isdigit():
+        return False
+
+    num = int(rest)
+    return 1 <= num <= 110
+
+
+def is_caldwell_token(token: str) -> bool:
+    """
+    Sprawdza, czy token jest poprawnym numerem Caldwell: C1–C109.
+    Akceptuje warianty typu 'C1', 'C 1', 'c22'.
+    """
+    if token is None:
+        return False
+    t = str(token).strip().upper()
+    if not t.startswith("C") or len(t) <= 1:
+        return False
+
+    rest = t[1:].strip()
+    if not rest.isdigit():
+        return False
+
+    num = int(rest)
+    return 1 <= num <= 109
+
+
+def is_herschel_token(token: str) -> bool:
+    """
+    Sprawdza, czy token jest poprawnym numerem Herschel 400: H1–H400.
+    Akceptuje warianty typu 'H1', 'H 1', 'h250'.
+    """
+    if token is None:
+        return False
+    t = str(token).strip().upper()
+    if not t.startswith("H") or len(t) <= 1:
+        return False
+
+    rest = t[1:].strip()
+    if not rest.isdigit():
+        return False
+
+    num = int(rest)
+    return 1 <= num <= 400
+
+
+def analyze_famous_status(extra_info_str: str) -> pd.Series:
+    """
+    Zwraca serię Pandas z flagami [is_messier, is_caldwell, is_herschel]
+    dla pojedynczego wiersza na podstawie pola extra_info.
+
+    Założenia:
+    - katalog_astro_full ma w extra_info identyfikatory rozdzielone przecinkami,
+      np. 'NGC 7000, C 20' lub 'M 31, NGC 224'.
+    """
+    has_m = False
+    has_c = False
+    has_h = False
+
+    if pd.notna(extra_info_str):
+        s = str(extra_info_str).strip()
+        if s:
+            # rozbijamy wyłącznie po przecinku (tak jest w katalog_astro_full)
+            tokens = [t.strip() for t in s.split(",") if t.strip()]
+            for token in tokens:
+                if is_messier_token(token):
+                    has_m = True
+                elif is_caldwell_token(token):
+                    has_c = True
+                elif is_herschel_token(token):
+                    has_h = True
+
+    return pd.Series([has_m, has_c, has_h])
+
+# =====================================================
 # ASTRO MATH
 # =====================================================
 
@@ -607,17 +696,21 @@ def city_optimized_score(row, user_params):
                     ),
                 }
 
+    is_messier = bool(row.get("is_messier", False))
+    is_caldwell = bool(row.get("is_caldwell", False))
+    is_herschel = bool(row.get("is_herschel", False))
+    
     if prefer_famous:
-        if "M" in extra:
+        if is_messier:
             score += 100
-        elif "C" in extra:
+        elif is_caldwell:
             score += 60
-        elif "H" in extra:
+        elif is_herschel:
             score += 30
     else:
-        if "M" in extra:
+        if is_messier:
             score += 40
-        elif "C" in extra:
+        elif is_caldwell:
             score += 20
 
     if mag < 7:
@@ -1176,8 +1269,7 @@ def apply_safety_cut(
 
     if "is_famous" not in df.columns:
         def _is_famous_row(row: pd.Series) -> bool:
-            extra = str(row.get("extrainfo", "") or "")
-            has_catalog = any(x in extra for x in ("M", "C", "H"))
+            is_cat_famous = bool(row.get("is_catalog_famous", False))
             cname = row.get("common_names", None)
             has_common = (
                 cname is not None
@@ -1185,7 +1277,7 @@ def apply_safety_cut(
                 and str(cname).strip().lower() != "nan"
                 and str(cname).strip() != ""
             )
-            return has_catalog or has_common
+            return is_cat_famous or has_common
         df["is_famous"] = df.apply(_is_famous_row, axis=1)
 
     if "is_fully_measured" not in df.columns:
@@ -1313,9 +1405,24 @@ def main():
     print("\n[INFO] Uzupełnianie brakujących danych (mag, size)...")
     df_all = load_and_impute_catalog(catalog.df)
     
-    # UJEDNOLICENIE NAZWY: pracujemy na 'extra_info'
-    if "extrainfo" in df_all.columns and "extra_info" not in df_all.columns:
-        df_all["extra_info"] = df_all["extrainfo"]
+    # ---------------------------------------------------------
+    # FLAGI FAMOUS (Messier / Caldwell / Herschel)
+    # ---------------------------------------------------------
+    print("[INFO] Analiza katalogów Messier / Caldwell / Herschel...")
+    
+    if "extra_info" not in df_all.columns:
+        # jeśli naprawdę nie ma, załóż pustą kolumnę, żeby dalszy kod był odporny
+        df_all["extra_info"] = ""
+    
+    famous_flags = df_all["extra_info"].apply(analyze_famous_status)
+    famous_flags.columns = ["is_messier", "is_caldwell", "is_herschel"]
+    
+    df_all = pd.concat([df_all, famous_flags], axis=1)
+    
+    df_all["is_catalog_famous"] = (
+        df_all["is_messier"] | df_all["is_caldwell"] | df_all["is_herschel"]
+    )
+    # ---------------------------------------------------------
 
     mag_measured = df_all["has_mag_measured"].sum()
     size_measured = df_all["has_size_measured"].sum()
@@ -1438,7 +1545,11 @@ def main():
             "common_names": row.get("common_names", None),
             "monthsobservable": months_obs,
             "rarity_score": rarity,
-        })
+            "is_messier": bool(row.get("is_messier", False)),
+            "is_caldwell": bool(row.get("is_caldwell", False)),
+            "is_herschel": bool(row.get("is_herschel", False)),
+            "is_catalog_famous": bool(row.get("is_catalog_famous", False)),
+            })
 
     canddf = pd.DataFrame(rows)
 
@@ -1451,14 +1562,13 @@ def main():
     # 1. Sprawdź, czy obiekt jest "Sławny" (M, C, H lub posiada Common Name)
     def check_is_famous(row):
         # Sprawdzamy flagi w extrainfo (Messier, Caldwell, Herschel)
-        extra = str(row.get("extrainfo", ""))
-        has_catalog = any(x in extra for x in ["M", "C", "H"])
+        is_cat_famous = bool(row.get("is_catalog_famous", False))
 
         # Sprawdzamy czy ma nazwę potoczną (Common Name)
         cname = row.get("common_names")
         has_common_name = (cname is not None) and (not pd.isna(cname)) and (str(cname).strip() != "")
 
-        return has_catalog or has_common_name
+        return is_cat_famous or has_common_name
 
     canddf["is_famous"] = canddf.apply(check_is_famous, axis=1)
 
@@ -1787,6 +1897,10 @@ def main():
             "max_altitude_year": round(float(obj["maxalt"]), 1),
             "months_observable": months_obs,
             "rarity_score": round(float(rarity), 2),
+            "is_messier": bool(obj.get("is_messier", False)),
+            "is_caldwell": bool(obj.get("is_caldwell", False)),
+            "is_herschel": bool(obj.get("is_herschel", False)),
+            "is_catalog_famous": bool(obj.get("is_catalog_famous", False)),
         })
     ensure_unique_ids_in_output(outputdata["objects"])
     with open(Config.OUTPUT_FILE, "w", encoding="utf-8") as f:

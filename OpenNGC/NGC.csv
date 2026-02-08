@@ -7672,8 +7672,8 @@ NGC1972;OCl;05:26:47.36;-69:50:18.0;Dor;0.9;0.8;100.0;12.95;12.62;;;;;;;;;;;;;;;
 NGC1973;Neb;05:35:04.78;-04:43:54.4;Ori;5.0;5.0;;7.0;;;;;;;;;;;;;;;;;;;;;;;Type:1|RA:1|Dec:1|Const:99|MajAx:3|MinAx:3|B-Mag:3
 NGC1974;OCl;05:27:59.02;-67:25:26.9;Dor;1.6;1.6;;;10.3;13.74;13.86;13.88;;;;;;;;;;;;1991;;;2MASX J05275898-6725271,IRAS 05280-6727;;Within boundaries of LMC;;Type:1|RA:1|Dec:1|Const:99|MajAx:7|MinAx:7|V-Mag:2|J-Mag:2|H-Mag:2|K-Mag:2
 NGC1975;Neb;05:35:17.88;-04:41:06.8;Ori;10.0;5.0;;7.0;;;;;;;;;;;;;;;;;;;;;;;Type:1|RA:1|Dec:1|Const:99|MajAx:3|MinAx:3|B-Mag:3
-NGC1976;Cl+N;05:35:16.48;-05:23:22.8;Ori;90.0;60.0;;4.0;4.0;;;;;;;1.67;-0.3;28.0;9.3e-05;;;;42;;;;LBN 974,MWSC 0582;Great Orion Nebula,Orion Nebula;;;Type:1|RA:1|Dec:1|Const:99|MajAx:9|MinAx:9|B-Mag:3|V-Mag:10|Pm-RA:2|Pm-Dec:2|RadVel:2|Redshift:2
-NGC1977;Cl+N;05:35:15.80;-04:50:39.6;Ori;10.2;;;;;;;;;;;;;;;;;;;;;;MWSC 0587;the Running Man Nebula;;;Type:1|RA:1|Dec:1|Const:99|MajAx:5
+NGC1976;Cl+N;05:35:16.48;-05:23:22.8;Ori;90.0;60.0;;4.0;4.0;;;;;;;1.67;-0.3;28.0;9.3e-05;;;;42;;;;LBN 974,MWSC 0582;;;;Type:1|RA:1|Dec:1|Const:99|MajAx:9|MinAx:9|B-Mag:3|V-Mag:10|Pm-RA:2|Pm-Dec:2|RadVel:2|Redshift:2
+NGC1977;Cl+N;05:35:15.80;-04:50:39.6;Ori;10.2;;;;;;;;;;;;;;;;;;;;;;MWSC 0587;;;;Type:1|RA:1|Dec:1|Const:99|MajAx:5
 NGC1978;GCl;05:28:45.13;-66:14:09.3;Dor;4.0;2.7;160.0;10.7;10.7;;;;;;;;;;;;;;;;;;ESO 085-090,IRAS 05287-6616;;Within boundaries of LMC;;Type:1|RA:1|Dec:1|Const:99|MajAx:7|MinAx:7|PosAng:7|B-Mag:2|V-Mag:2
 NGC1979;G;05:34:01.11;-23:18:36.3;Lep;1.88;1.81;145.0;12.9;;9.86;9.22;9.01;23.04;E-S0;;;;1743.0;0.005831;;;;;;;;2MASX J05340112-2318361,ESO 487-024,ESO-LV 487-0240,MCG -04-14-004,PGC 017452;;;;Type:1|RA:1|Dec:1|Const:99|MajAx:3|MinAx:3|PosAng:3|B-Mag:3|J-Mag:2|H-Mag:2|K-Mag:2|SurfBr:3|Hubble:3|RadVel:2|Redshift:2
 NGC1980;Cl+N;05:35:25.99;-05:54:35.6;Ori;9.3;;;;2.5;;;;;;;0.46;-1.01;23.0;7.7e-05;;;;;;;;LBN 977,MWSC 0586;Lower Sword;;;Type:1|RA:1|Dec:1|Const:99|MajAx:9|V-Mag:2|Pm-RA:2|Pm-Dec:2|RadVel:2|Redshift:2

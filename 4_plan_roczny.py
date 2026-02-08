@@ -122,6 +122,88 @@ def load_observing_data(path: str = "observing_data.pkl") -> Dict[str, List[Dict
     with open(path, "rb") as f:
         return pickle.load(f)
 
+# ------------------------------------------------------------
+# Post-processing ID: dopisywanie M/C/H w nawiasie dla selected
+# ------------------------------------------------------------
+def _extract_famous_labels(extra_info: str) -> List[str]:
+    """
+    Zwraca listę etykiet typu 'M33', 'C20', 'H400' znalezionych w extra_info.
+    Zakłada, że identyfikatory są rozdzielone przecinkami.
+    """
+    if not extra_info:
+        return []
+
+    labels: List[str] = []
+    tokens = [t.strip() for t in str(extra_info).split(",") if t.strip()]
+
+    for token in tokens:
+        t = token.strip().upper()
+        if len(t) < 2:
+            continue
+
+        prefix = t[0]
+        rest = t[1:].strip()
+
+        if prefix not in ("M", "C", "H"):
+            continue
+        if not rest.isdigit():
+            continue
+
+        # normalizujemy: "M 33" -> "M33"
+        label = f"{prefix}{int(rest)}"
+        labels.append(label)
+
+    # usuwamy duplikaty, zachowując kolejność
+    seen = set()
+    unique_labels = []
+    for lab in labels:
+        if lab not in seen:
+            seen.add(lab)
+            unique_labels.append(lab)
+    return unique_labels
+
+
+def append_famous_labels_to_ids(vis_data: Dict) -> None:
+    """
+    Modyfikuje vis_data IN-PLACE:
+    dla obiektów z selected != None wyciąga z extra_info M/C/H
+    i dopisuje je w nawiasie do pola 'id' i 'name', np.:
+
+        NGC 7000 -> NGC 7000 (M33, C20)
+
+    Jeśli nawias już jest, dodaje po przecinku.
+    """
+    for obj in vis_data.get("objects", []):
+        selected = obj.get("selected")
+        if not selected:
+            continue  # pomijamy niewybrane
+
+        extra_info = obj.get("extra_info", "")
+        labels = _extract_famous_labels(extra_info)
+        if not labels:
+            continue
+
+        base_id = str(obj.get("id", "")).strip()
+        if not base_id:
+            continue
+
+        # jeśli id już ma nawias, nie rozbijamy – tylko dopisujemy wewnątrz
+        if "(" in base_id and base_id.endswith(")"):
+            # np. "NGC 7000 (stare)" -> część przed "(" + stare+nowe w środku
+            main_part, rest = base_id.split("(", 1)
+            rest_inner = rest.rstrip(")")
+            existing = [x.strip() for x in rest_inner.split(",") if x.strip()]
+            # dodaj nowe, unikając duplikatów
+            for lab in labels:
+                if lab not in existing:
+                    existing.append(lab)
+            new_inner = ", ".join(existing)
+            new_id = f"{main_part.strip()} ({new_inner})"
+        else:
+            new_id = f"{base_id} ({', '.join(labels)})"
+
+        obj["id"] = new_id
+        obj["name"] = new_id
 
 # ------------------------------------------------------------
 # ZAPIS DO vis_data.json – DODANIE FLAGI SELECTED
@@ -161,7 +243,9 @@ def save_selected_to_vis_data(
         obj_id = obj["id"]
         if obj_id in selected_map:
             obj["selected"] = selected_map[obj_id]
-
+    
+    append_famous_labels_to_ids(vis_data)
+    
     with open(vis_json_path, "w", encoding="utf-8") as f:
         json.dump(vis_data, f, indent=2, ensure_ascii=False)
 
@@ -587,8 +671,8 @@ def plot_month_variant(
                 color=cmap(idx % 10),
                 label=oid,
             )
-
-        ax.legend(fontsize=6, loc="upper right", ncol=1)
+        if objs:
+            ax.legend(fontsize=6, loc="upper right")
 
     ax.axhline(min_alt, color="#880E4F", ls=":", lw=1)
 
