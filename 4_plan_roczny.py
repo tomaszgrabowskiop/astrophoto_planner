@@ -34,6 +34,25 @@ import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, AltAz, EarthLocation, get_sun, get_body
 
+"""
+	Wyciszamy ostrzeżenia AstroPy. Dotyczą: 
+		
+	• ErfaWarning: "dubious year (Note X)": ERFA (silnik metryk czasowych w Astropy) 
+	oznacza rok jako „wątpliwy”, gdy brakuje dokładnych danych o skokach sekundowych
+	 i modelu czasu dla przyszłych lat.
+	• Tried to get polar motions for times after IERS data is valid: Astropy nie ma aktualnych 
+	tabel IERS (ruch bieguna, UT1–UTC), więc używa średnich 50‑letnich
+	 – dokładność spada do poziomu łuku sekundowego.
+	
+	Możesz zakomentować poniższe linie kodu, żeby widziec ostrzeżenia. 
+"""
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+from erfa import ErfaWarning
+
+warnings.filterwarnings("ignore", category=ErfaWarning)
+warnings.filterwarnings("ignore", category=AstropyWarning)
 
 # ------------------------------------------------------------
 # Stałe / konfiguracja
@@ -569,7 +588,7 @@ def plot_month_variant(
                 label=oid,
             )
 
-        ax.legend(fontsize=6, loc="upper right", ncol=2)
+        ax.legend(fontsize=6, loc="upper right", ncol=1)
 
     ax.axhline(min_alt, color="#880E4F", ls=":", lw=1)
 

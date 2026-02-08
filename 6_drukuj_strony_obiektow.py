@@ -18,6 +18,26 @@ import matplotlib.ticker as ticker
 from matplotlib.dates import DateFormatter
 import textwrap
 
+"""
+	Wyciszamy ostrzeżenia AstroPy. Dotyczą: 
+		
+	• ErfaWarning: "dubious year (Note X)": ERFA (silnik metryk czasowych w Astropy) 
+	oznacza rok jako „wątpliwy”, gdy brakuje dokładnych danych o skokach sekundowych
+	 i modelu czasu dla przyszłych lat.
+	• Tried to get polar motions for times after IERS data is valid: Astropy nie ma aktualnych 
+	tabel IERS (ruch bieguna, UT1–UTC), więc używa średnich 50‑letnich
+	 – dokładność spada do poziomu łuku sekundowego.
+	
+	Możesz zakomentować poniższe linie kodu, żeby widziec ostrzeżenia. 
+"""
+
+import warnings
+from astropy.utils.exceptions import AstropyWarning
+from erfa import ErfaWarning
+
+warnings.filterwarnings("ignore", category=ErfaWarning)
+warnings.filterwarnings("ignore", category=AstropyWarning)
+
 # --- KONFIGURACJA ---
 
 PKL_PATH = "observing_data.pkl"
@@ -186,7 +206,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num):
     ax_txt.text(0, 1.0, header, fontsize=16, fontweight="bold", va="top")
     lorem = (
         f"|Typ: {row.get('type', '')} | RA: {ra_rounded:.2f} | Dec: {dec_rounded:.2f}|\n"
-        f"|Rozmiar: {size_rounded:.2f} | Mag.: {mag_rounded:.2f} (28 = nie jest ustalona)|\n"
+        f"|Rozmiar: {size_rounded:.2f}' | Mag.: {mag_rounded:.2f} (28 = nie jest ustalona)|\n"
         f"|Indeksy: {indeksy_short}|"
     )
     ax_txt.text(
@@ -507,7 +527,7 @@ def main():
     with PdfPages(output_name) as pdf:
         page_num = 13  # numer pierwszej strony obiektu
 
-        for _, row in df.iterrows(): #.head(2) ogranicza liczbę pól json wstaw po df
+        for _, row in df.head(2).iterrows(): #.head(2) ogranicza liczbę pól json wstaw po df
             oid = row["id"]
             sel = row["selected"]
 
