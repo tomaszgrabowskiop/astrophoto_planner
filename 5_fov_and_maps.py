@@ -113,7 +113,7 @@ def build_objects_from_vis_data(
     return df
 
 def _display_name(row: pd.Series) -> str:
-    cn = row.get("commonname")
+    cn = row.get("common_names")
     if pd.notna(cn) and str(cn).strip():
         return str(cn)
     nm = row.get("name")

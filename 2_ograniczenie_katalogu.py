@@ -1720,7 +1720,7 @@ def main():
             "base_score": round(float(crow["base_score"]), 2),
             "maxalt": round(float(crow["maxalt"]), 2),
             "hours": np.round(crow["hours"], 1).tolist(),
-            "commonname": None
+            "common_names": None
             if commonname is None or pd.isna(commonname)
             else str(commonname),
             "data_quality": data_quality,
@@ -1767,7 +1767,7 @@ def main():
             "type": obj.get("type_code", ""),
             "size": float(obj["size"]) if obj["size"] is not None else 0.0,
             "mag": float(obj["mag"]) if obj["mag"] is not None else 0.0,
-            "commonname": "" if pd.isna(cname) else str(cname).strip(),
+            "common_names": "" if pd.isna(cname) else str(cname).strip(),
             "extra_info": obj.get("extra_info", ""),
             "monthly_hours_total": hours_total.tolist(),
             "max_altitude_year": round(float(obj["maxalt"]), 1),

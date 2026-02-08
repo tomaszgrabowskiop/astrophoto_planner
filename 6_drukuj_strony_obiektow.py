@@ -147,7 +147,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num):
     type_pl = TYPE_NAMES.get(obj_type_code, obj_type_code or "Inny")
     
     max_len = 20
-    raw_name = row.get('commonname') or 'brak'
+    raw_name = row.get('common_names') or 'brak'
     short_name = (raw_name[:max_len - 3] + '...') if len(raw_name) > max_len else raw_name
     line = f"| Nazwa zwyczajowa: {short_name} |\n"
 
