@@ -579,6 +579,18 @@ def city_optimized_score(row, user_params):
             score += 15
         elif size > 10:
             score += 5
+        
+        is_messier = bool(row.get("is_messier", False))
+        is_caldwell = bool(row.get("is_caldwell", False))
+        is_herschel = bool(row.get("is_herschel", False))
+        
+        # Stałe bonusy za katalogi, niezależne od prefer_famous
+        if is_messier:
+            score += 20
+        if is_caldwell:
+            score += 15
+        if is_herschel:
+            score += 10
 
         final_score = max(0.0, score)
         return {
@@ -699,19 +711,13 @@ def city_optimized_score(row, user_params):
     is_messier = bool(row.get("is_messier", False))
     is_caldwell = bool(row.get("is_caldwell", False))
     is_herschel = bool(row.get("is_herschel", False))
-    
     if prefer_famous:
         if is_messier:
-            score += 100
-        elif is_caldwell:
-            score += 60
-        elif is_herschel:
-            score += 30
-    else:
-        if is_messier:
-            score += 40
-        elif is_caldwell:
             score += 20
+        elif is_caldwell:
+            score += 15
+        elif is_herschel:
+            score += 10
 
     if mag < 7:
         score += 20
