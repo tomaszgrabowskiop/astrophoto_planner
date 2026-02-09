@@ -167,11 +167,12 @@ def append_famous_labels_to_ids(vis_data: Dict) -> None:
     """
     Modyfikuje vis_data IN-PLACE:
     dla obiektów z selected != None wyciąga z extra_info M/C/H
-    i dopisuje je w nawiasie do pola 'id' i 'name', np.:
+    i dopisuje je w nawiasie TYLKO do pola 'name', zostawiając 'id' bez zmian, np.:
 
-        NGC 7000 -> NGC 7000 (M33, C20)
+        id:   "NGC 7000"
+        name: "NGC 7000 (M33, C20)"
 
-    Jeśli nawias już jest, dodaje po przecinku.
+    Jeśli nawias już jest w name, dodaje po przecinku.
     """
     for obj in vis_data.get("objects", []):
         selected = obj.get("selected")
@@ -187,10 +188,12 @@ def append_famous_labels_to_ids(vis_data: Dict) -> None:
         if not base_id:
             continue
 
-        # jeśli id już ma nawias, nie rozbijamy – tylko dopisujemy wewnątrz
-        if "(" in base_id and base_id.endswith(")"):
-            # np. "NGC 7000 (stare)" -> część przed "(" + stare+nowe w środku
-            main_part, rest = base_id.split("(", 1)
+        # Pracujemy tylko na name, id zostaje nietknięte
+        current_name = str(obj.get("name", base_id)).strip()
+        
+        # jeśli name już ma nawias, dopisujemy wewnątrz
+        if "(" in current_name and current_name.endswith(")"):
+            main_part, rest = current_name.split("(", 1)
             rest_inner = rest.rstrip(")")
             existing = [x.strip() for x in rest_inner.split(",") if x.strip()]
             # dodaj nowe, unikając duplikatów
@@ -198,12 +201,11 @@ def append_famous_labels_to_ids(vis_data: Dict) -> None:
                 if lab not in existing:
                     existing.append(lab)
             new_inner = ", ".join(existing)
-            new_id = f"{main_part.strip()} ({new_inner})"
+            new_name = f"{main_part.strip()} ({new_inner})"
         else:
-            new_id = f"{base_id} ({', '.join(labels)})"
+            new_name = f"{current_name} ({', '.join(labels)})"
 
-        obj["id"] = new_id
-        obj["name"] = new_id
+        obj["name"] = new_name
 
 # ------------------------------------------------------------
 # ZAPIS DO vis_data.json – DODANIE FLAGI SELECTED
@@ -654,6 +656,7 @@ def plot_month_variant(
         # RA/DEC obiektów
         ra_dict = {obj["id"]: obj["ra"] for obj in vis_data["objects"]}
         dec_dict = {obj["id"]: obj["dec"] for obj in vis_data["objects"]}
+        common_names_dict = {obj["id"]: obj.get("common_names", "") for obj in vis_data["objects"]}
 
         cmap = plt.get_cmap("tab20b")
         for idx, oid in enumerate(objs):
@@ -664,12 +667,15 @@ def plot_month_variant(
 
             coord = SkyCoord(ra * u.deg, dec * u.deg)
             o_alt = coord.transform_to(altaz).alt.deg
+            cname = common_names_dict.get(oid, "")
+            short_cname = f" ({cname[:12]}{'...' if len(cname) > 12 else ''})" if cname else ""
+            label = oid + short_cname
             ax.plot(
                 h_rel,
                 o_alt,
                 lw=2,
                 color=cmap(idx % 10),
-                label=oid,
+                label=label,
             )
         if objs:
             ax.legend(fontsize=6, loc="upper right")
@@ -906,7 +912,7 @@ def main(
     sunlimit = float(params.get("sunlimit", -12.0))
 
     print(f"[INFO] Rok: {year}, minalt={minalt}, minhours={minhours}")
-    print(f"[INFO] Lokalizacja: lat={lat}, lon={lon}")
+    print(f"[INFO] Lokalizacja: lat={lat:.4f}, lon={lon:.4f}")
 
     monthly_avg = compute_monthly_avg_q_hours(observing_data)
     print(f"[INFO] Miesięczna macierz widoczności: {len(monthly_avg)} rekordów.")
