@@ -42,7 +42,7 @@ SH2_COMMON_NAMES = {
 }
 
 def print_step(msg):
-    print(f"\n[INFO] {msg}")
+    print(f"[INFO] {msg}")
 
 def fmt(n: int) -> str:
     """Format liczby z separatorem tysięcy (spacja)."""
@@ -69,17 +69,15 @@ def fetch_data():
     # NGC/IC z lokalnego pliku
     print("  > NGC/IC z updated_ngc.csv...")
     df_ngc = pd.read_csv("updated_ngc.csv")
-    print(f"    {fmt(len(df_ngc))} wierszy")
-    
+        
     # Konfiguracja Vizier
-    v_std = Vizier(row_limit=-1, columns=['*', '_RAJ2000', '_DEJ2000'])
+    v_std = Vizier(row_limit=-1, columns=['**', '_RAJ2000', '_DEJ2000'])
     
     def get_v(cat_id, name):
         print(f"  > {name} ({cat_id})...")
         try:
             cats = v_std.get_catalogs(cat_id)
             df = cats[0].to_pandas() if cats else pd.DataFrame()
-            print(f"    {fmt(len(df))} wierszy")
             return df
         except Exception:
             print("    [!] Błąd połączenia.")
@@ -112,15 +110,16 @@ def normalize_all(raw):
     print_step("Normalizacja katalogów (unifikacja kolumn)...")
     results = []
 
-    # NGC/IC - Bez zmian w extra_info
-    df = raw['ngc'].copy()
-    print("  > Normalizacja NGC/IC...")
-    df['ra'] = pd.to_numeric(df['ra'], errors='coerce')
-    df['dec'] = pd.to_numeric(df['dec'], errors='coerce')
-    df['catalog'], df['priority'] = 'ngc', PRIORITIES['ngc']
-    results.append(df)
+    # 1. NGC/IC
+    if not raw['ngc'].empty:
+        df = raw['ngc'].copy()
+        print("  > Normalizacja NGC/IC...")
+        df['ra'] = pd.to_numeric(df['ra'], errors='coerce')
+        df['dec'] = pd.to_numeric(df['dec'], errors='coerce')
+        df['catalog'], df['priority'] = 'ngc', PRIORITIES['ngc']
+        results.append(df)
 
-    # SHARPLESS
+    # 2. SHARPLESS
     df = raw['sh2']
     if not df.empty:
         print("  > Normalizacja Sharpless...")
@@ -134,53 +133,70 @@ def normalize_all(raw):
         df['catalog'], df['priority'] = 'sh2', PRIORITIES['sh2']
         results.append(df)
 
-    # BARNARD
+    # 3. BARNARD
     df = raw['barn']
     if not df.empty:
         print("  > Normalizacja Barnard...")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['Barn'].apply(lambda x: f"B{str(x).strip()}")
-        df['size'] = pd.to_numeric(df['Diam'], errors='coerce') if 'Diam' in df.columns else np.nan
+        df['size'] = pd.to_numeric(df['Diam'], errors='coerce')
         df['mag'], df['type'], df['extra_info'] = np.nan, 'DN', ""
         df['catalog'], df['priority'] = 'barn', PRIORITIES['barn']
         results.append(df)
 
-    # RCW
+    # 4. RCW - POPRAWKA (Używamy MajAxis jako size)
     df = raw['rcw']
     if not df.empty:
         print("  > Normalizacja RCW...")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['RCW'].apply(lambda x: f"RCW{str(x).strip()}")
-        df['size'], df['mag'], df['type'], df['extra_info'] = np.nan, np.nan, 'HII', ""
+        # Vizier: MajAxis = Oś wielka (zazwyczaj w minutach dla RCW w VII/216)
+        df['size'] = pd.to_numeric(df['MajAxis'], errors='coerce')
+        df['mag'], df['type'], df['extra_info'] = np.nan, 'HII', ""
         df['catalog'], df['priority'] = 'rcw', PRIORITIES['rcw']
         results.append(df)
 
-    # CEDERBLAD
+    # 5. CEDERBLAD - POPRAWKA (Dim1/2 jako size, vmag jako mag)
     df = raw['ced']
     if not df.empty:
         print("  > Normalizacja Cederblad...")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
+        
         ids = []
         for _, row in df.iterrows():
             num = str(row['Ced']).strip()
             sub = str(row['m_Ced']).strip() if 'm_Ced' in row and pd.notnull(row['m_Ced']) and str(row['m_Ced']) != 'nan' else ""
             ids.append(f"Ced{num}{sub}")
         df['id'] = ids
-        df['size'], df['mag'], df['type'], df['extra_info'] = np.nan, np.nan, 'NB', ""
+
+        # Rozmiar: Średnia z Dim1 i Dim2, lub Dim1
+        d1 = pd.to_numeric(df['Dim1'], errors='coerce')
+        d2 = pd.to_numeric(df['Dim2'], errors='coerce')
+        # Jeśli d2 istnieje i jest > 0, bierzemy średnią, w przeciwnym razie d1
+        df['size'] = np.where((d2.notna()) & (d2 > 0), (d1 + d2) / 2, d1)
+
+        # Jasność: vmag (Visual Magnitude)
+        df['mag'] = pd.to_numeric(df['vmag'], errors='coerce')
+
+        df['type'], df['extra_info'] = 'NB', ""
         df['catalog'], df['priority'] = 'ced', PRIORITIES['ced']
         results.append(df)
 
-    # LBN
+    # 6. LBN - (Diam1 jako size)
     df = raw['lbn']
     if not df.empty:
         print("  > Normalizacja LBN...")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['Seq'].apply(lambda x: f"LBN{x}")
-        df['size'], df['mag'], df['type'], df['extra_info'] = np.nan, np.nan, 'NB', ""
+        
+        # Vizier: Diam1 = Largest dimension
+        df['size'] = pd.to_numeric(df['Diam1'], errors='coerce')
+
+        df['mag'], df['type'], df['extra_info'] = np.nan, 'NB', ""
         df['catalog'], df['priority'] = 'lbn', PRIORITIES['lbn']
         results.append(df)
 
-    # LDN
+    # 7. LDN
     df = raw['ldn']
     if not df.empty:
         print("  > Normalizacja LDN...")
@@ -191,13 +207,14 @@ def normalize_all(raw):
         df['catalog'], df['priority'] = 'ldn', PRIORITIES['ldn']
         results.append(df)
 
-    # PGC
+    # 8. PGC
     df = raw['pgc']
     if not df.empty:
         print("  > Normalizacja PGC...")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['PGC'].apply(lambda x: f"PGC{int(x)}" if pd.notnull(x) else "")
-        df['size'] = pd.to_numeric(df['MajAxis'], errors='coerce') / 60
+        
+        df['size'] = pd.to_numeric(df['MajAxis'], errors='coerce') / 60 #dane w minutach czy w stopniach?
         df['mag'] = pd.to_numeric(df['Btot'], errors='coerce')
         df['type'], df['extra_info'] = 'Gx', ""
         df['catalog'], df['priority'] = 'pgc', PRIORITIES['pgc']
@@ -212,8 +229,9 @@ def normalize_all(raw):
                 d[c] = np.nan
         output.append(d[final_cols])
     return pd.concat(output, ignore_index=True)
-
-# === 3. SMART MERGE (LOGIKA GRAFOWA) ===
+    
+    
+# === SMART MERGE (LOGIKA GRAFOWA) ===
 def smart_merge(df, tolerance_deg):
     df = df.dropna(subset=['ra', 'dec']).reset_index(drop=True)
     print_step(f"Konsolidacja Smart Merge (tolerancja {tolerance_deg*60:.2f} arcmin)...")
@@ -283,31 +301,20 @@ def smart_merge(df, tolerance_deg):
         
         # common_names
         master['common_names'] = combine_text('common_names')
-
         merged_rows.append(master.to_dict())
 
     return pd.DataFrame(merged_rows)
 
 def main():
-    print("=== GENERATOR KATALOGU ASTRONOMICZNEGO (ENTITY RESOLUTION) ===\n")
-    
+    print("\n=== GENERATOR KATALOGU ASTRONOMICZNEGO (ENTITY RESOLUTION) ===\n")
     raw = fetch_data()
     full = normalize_all(raw)
-    
-    print_step("DEBUG: priorytety po normalizacji")
-    print(
-        full.groupby('catalog')['priority']
-            .agg(['min', 'max', 'nunique'])
-            .reset_index()
-            .sort_values('min')
-    )
-    
     print_step("KONFIGURACJA")
     global RA_DEC_TOLERANCE_ARCMIN, MIN_SIZE_ARCMIN, MAX_MAG
     
     # 1. Tolerancja w minutach z walidacją
     ans = input(
-        f"Tolerancja łączenia obiektów w MINUTACH kątowych (arcmin) "
+        f"Tolerancja łączenia obiektów w minutach kątowych (arcmin) "
         f"[{RA_DEC_TOLERANCE_ARCMIN}]: "
     ).strip()
     if ans:
@@ -320,64 +327,38 @@ def main():
     tol_deg = RA_DEC_TOLERANCE_ARCMIN / 60.0
 
     # 2. Reszta parametrów
-    ans = input(f"Minimalny rozmiar MIN_SIZE_ARCMIN [{MIN_SIZE_ARCMIN}]: ").strip()
+    ans = input(f"Minimalny rozmiar [{MIN_SIZE_ARCMIN}']: ").strip()
     if ans:
         MIN_SIZE_ARCMIN = float(ans)
     
-    ans = input(f"Maksymalna jasność MAX_MAG [{MAX_MAG}]: ").strip()
+    ans = input(f"Maksymalna jasność [{MAX_MAG}]: ").strip()
     if ans:
         MAX_MAG = float(ans)
 
-    # Filtrowanie typów PRZED Smart Merge
-    print_step("Filtrowanie typów przed Smart Merge")
-    pre_merge = full.copy()
-    start_count = len(pre_merge)
-
-    forbidden = ['*', '**', '*Ass', 'Dup', 'NonEx', 'SNR', 'PN', 'Nova', 'GPair', 'EmN']
-
-    after_forbidden = pre_merge[~pre_merge['type'].isin(forbidden)]
-    removed_forbidden = len(pre_merge) - len(after_forbidden)
-    pre_merge = after_forbidden
-    print(f"Usunąłem {fmt(removed_forbidden)} obiektów na podstawie typu (forbidden).")
-    print(f"Do Smart Merge trafi {fmt(len(pre_merge))} obiektów po odrzuceniu typów forbidden.")
-
-    # Smart Merge na danych po forbidden
-    print_step("Smart Merge")
-    final = smart_merge(pre_merge, tol_deg)
-    print(f"Po Smart Merge: {fmt(len(final))} obiektów (po połączeniu duplikatów w obrębie tolerancji).")
-
-    # Filtrowanie rozmiaru i jasności PO Smart Merge
-    print_step("Filtrowanie rozmiaru i jasności po Smart Merge")
-    start_count_post_merge = len(final)
-
-    # Rozmiar
-    before_size = len(final)
-    after_size = final[(final['size'].isna()) | (final['size'] >= MIN_SIZE_ARCMIN)]
-    removed_size = before_size - len(after_size)
-    final = after_size
-    print(
-        f"Usunąłem {fmt(removed_size)} obiektów mniejszych niż {MIN_SIZE_ARCMIN} arcmin "
-        f"(z wyjątkiem tych bez rozmiaru)."
+    # Filtrowanie szumu przed Smart Merge
+    df_work = full.copy()
+    print_step(f"START: {fmt(len(df_work))} obiektów.")
+    print_step("Usuwanie szumu: obiekty zbyt małe lub zbyt ciemne.")
+    TRASH_MAG = 18.0   # Wszystko ciemniejsze niż 18 mag
+    TRASH_SIZE = 0.9        # Wszystko mniejsze niż 0.9 minuty (54 sekund)
+    mask_trash = (
+        (df_work['mag'].notna() & (df_work['mag'] > TRASH_MAG)) |
+        (df_work['size'].notna() & (df_work['size'] < TRASH_SIZE))
     )
+    
+    df_clean = df_work[~mask_trash]
+    print_step(f"Odrzucono {fmt(mask_trash.sum())} obiektów (Mag > {TRASH_MAG} lub Size < {TRASH_SIZE}').")
+    print_step(f"Do Smart Merge trafia: {fmt(len(df_clean))} obiektów.")
 
-    # Jasność
-    before_mag = len(final)
-    after_mag = final[(final['mag'].isna()) | (final['mag'] <= MAX_MAG)]
-    removed_mag = before_mag - len(after_mag)
-    final = after_mag
-    print(
-        f"Usunąłem {fmt(removed_mag)} obiektów jaśniejszych niż {MAX_MAG} mag "
-        f"(z wyjątkiem tych bez magnitudo)."
-    )
-
-    print(
-        f"Łącznie usunąłem {fmt(start_count_post_merge - len(final))} obiektów "
-        f"po Smart Merge w filtrach rozmiaru i jasności."
-    )
-
+    # SMART MERGE (Na przefiltrowanych danych)
+    final = smart_merge(df_clean, tol_deg) 
+    # FILTR DOCELOWY 
+    mask_size = (final['size'].isna()) | (final['size'] >= MIN_SIZE_ARCMIN)
+    final = final[mask_size]
+    mask_mag = (final['mag'].isna()) | (final['mag'] <= MAX_MAG)
+    final = final[mask_mag]
     cols = ['id', 'extra_info', 'type', 'ra', 'dec', 'mag', 'size', 'common_names']
     final[cols].to_csv(OUTPUT_FILENAME, index=False)
-    
     print_step(f"ZAPISAŁEM {fmt(len(final))} OBIEKTÓW.")
     
     answer = input('\nUruchomić pełną analizę katalogu? [y/n] (domyślnie y): ').strip().lower()
