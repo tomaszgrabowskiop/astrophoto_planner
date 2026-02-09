@@ -375,28 +375,7 @@ def main():
         f"po Smart Merge w filtrach rozmiaru i jasności."
     )
 
-    # Scoring
-    def calc_score(row):
-        s = float(CATALOG_SCORES.get(row['catalog'], 0))
-        ext = str(row['extra_info'])
-    
-        if 'M' in ext:
-            s += 100.0
-        if 'C' in ext:
-            s += 50.0
-        if re.search(r'H\\d+', ext):
-            s += 40.0
-    
-        if pd.notna(row['size']):
-            s += min(30.0, row['size'] / 10.0)
-        if pd.notna(row['mag']):
-            s += max(0.0, 20.0 - float(row['mag']))
-            
-        return round(s, 2)
-
-    final['base_score'] = final.apply(calc_score, axis=1)
-    
-    cols = ['id', 'extra_info', 'type', 'ra', 'dec', 'mag', 'size', 'base_score', 'common_names']
+    cols = ['id', 'extra_info', 'type', 'ra', 'dec', 'mag', 'size', 'common_names']
     final[cols].to_csv(OUTPUT_FILENAME, index=False)
     
     print_step(f"ZAPISAŁEM {fmt(len(final))} OBIEKTÓW.")
