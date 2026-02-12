@@ -16,14 +16,22 @@ import certifi
 ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
 
 # === KONFIGURACJA DOMYŚLNA ===
-RA_DEC_TOLERANCE_ARCMIN = 1.2  # Domyślnie 0.02 stopnia
+RA_DEC_TOLERANCE_ARCMIN = 3  # Domyślnie 0.05 stopnia
 OUTPUT_FILENAME = "katalog_astro_full.csv"
 MIN_SIZE_ARCMIN = 5.0
-MAX_MAG = 14.0
+MAX_MAG = 17.0
 
-PRIORITIES = {'ngc': 1, 'sh2': 2, 'rcw': 3, 'lbn': 4, 'ldn': 5, 'barn': 6, 'ced': 7, 'pgc': 8}
 CATALOG_SCORES = {'ngc': 0, 'sh2': 30, 'rcw': 25, 'ced': 20, 'barn': -20, 'ldn': -25, 'lbn': 15, 'pgc': 10}
-
+PRIORITIES = {
+    'ngc': 1, 'ic': 1,  
+    'sh2': 2, 
+    'rcw': 3, 
+    'lbn': 4, 
+    'ced': 5, 
+    'pgc': 6, 
+    'barn': 7,          
+    'ldn': 8            
+}
 SH2_COMMON_NAMES = {
     "Sh2-101": "Tulip Nebula", "Sh2-103": "Loop", "Sh2-105": "Crescent Nebula",
     "Sh2-108": "Sadr Region", "Sh2-11": "War and Peace Nebula", "Sh2-117": "N American & Pelican Nebula",
@@ -38,7 +46,7 @@ SH2_COMMON_NAMES = {
     "Sh2-277": "Flame Nebula", "Sh2-279": "Running Man Nebula", "Sh2-281": "Orion Nebula",
     "Sh2-292": "Seagull Nebula head", "Sh2-296": "Seagull Nebula wings", "Sh2-298": "Thor's Helmet",
     "Sh2-30": "Trifid Nebula", "Sh2-311": "Skull & Crossbones Nebula", "Sh2-45": "Omega Nebula",
-    "Sh2-49": "Eagle N	ebula", "Sh2-54": "Cauda", "Sh2-6": "Bug Nebula", "Sh2-8": "Cat's Paw Nebula",
+    "Sh2-49": "Eagle N     ebula", "Sh2-54": "Cauda", "Sh2-6": "Bug Nebula", "Sh2-8": "Cat's Paw Nebula",
 }
 
 def print_step(msg):
@@ -61,6 +69,53 @@ def convert_ra_dec(df, ra_col, dec_col, unit_type='sexagesimal'):
     except Exception as e:
         print(f"  [!] Błąd konwersji RA/DEC: {e}")
     return df
+
+def process_common_names(text_series):
+    """
+    1. Rozbija stringi po przecinkach.
+    2. Usuwa "The " z początku (case-insensitive).
+    3. Sortuje od najdłuższej nazwy.
+    4. Odrzuca nazwę TYLKO JEŚLI zawiera się w innej, dłuższej nazwie, która już trafiła na listę.
+       Np. "Orion Nebula" wyleci, jeśli jest już "Great Orion Nebula".
+       Ale "Triangulum Galaxy" i "Triangulum Pinwheel" zostaną obie.
+    """
+    # Krok 1: Zbieranie unikalnych, oczyszczonych nazw
+    unique_candidates = set()
+    
+    for val in text_series.dropna().astype(str):
+        parts = [p.strip() for p in val.split(',')]
+        for p in parts:
+            if not p or p.lower() in ['nan', 'none', '']:
+                continue
+            
+            # Usuwanie "the " z początku
+            if p.lower().startswith("the "):
+                p = p[4:].strip()
+            
+            if p:
+                unique_candidates.add(p)
+    
+    # Krok 2: Sortowanie od najdłuższej do najkrótszej
+    # To kluczowe: najpierw akceptujemy najdłuższe, potem sprawdzamy czy krótsze są ich częścią
+    sorted_candidates = sorted(list(unique_candidates), key=len, reverse=True)
+    
+    kept_names = []
+    for candidate in sorted_candidates:
+        is_substring = False
+        
+        # Sprawdzamy czy 'candidate' zawiera się w całości w którejś z już zaakceptowanych nazw
+        for existing in kept_names:
+            # Używamy lower() aby ignorować wielkość liter przy sprawdzaniu
+            if candidate.lower() in existing.lower():
+                is_substring = True
+                break
+        
+        # Jeśli fraza NIE zawiera się w żadnej z dłuższych -> dodajemy ją
+        if not is_substring:
+            kept_names.append(candidate)
+            
+    # Krok 3: Sortowanie alfabetyczne wyniku dla porządku
+    return ", ".join(sorted(kept_names))
 
 # === 1. POBIERANIE DANYCH ===
 def fetch_data():
@@ -230,12 +285,15 @@ def normalize_all(raw):
         output.append(d[final_cols])
     return pd.concat(output, ignore_index=True)
     
-    
+#    
 # === SMART MERGE (LOGIKA GRAFOWA) ===
+#
+
 def smart_merge(df, tolerance_deg):
     df = df.dropna(subset=['ra', 'dec']).reset_index(drop=True)
     print_step(f"Konsolidacja Smart Merge (tolerancja {tolerance_deg*60:.2f} arcmin)...")
     
+    # Budowa grafu sąsiedztwa
     coords = SkyCoord(ra=df['ra'].values * u.deg, dec=df['dec'].values * u.deg)
     idx1, idx2, _, _ = search_around_sky(coords, coords, tolerance_deg * u.deg)
     
@@ -249,61 +307,62 @@ def smart_merge(df, tolerance_deg):
     print(f"       Znalazłem {fmt(len(clusters))} grup obiektów.")
 
     merged_rows = []
+    MAX_CLUSTER_SIZE_ARCMIN = 300.0  # Limit z 8.py (odsiewanie gigantycznych struktur tła)
+
     for cluster in clusters:
         subset = df.iloc[list(cluster)]
         
-        # Jeśli klaster ma tylko jeden obiekt, dodajemy go bez zmian
-        if len(subset) == 1:
-            merged_rows.append(subset.iloc[0].to_dict())
-            continue
-
-        # Sortujemy wg priorytetu (NGC=1, PGC=8) oraz rozmiaru
+        # 1. WYBÓR LIDERA
+        # Sortujemy: Najpierw wg priorytetu (1=NGC, rosnąco), potem wg rozmiaru (malejąco)
         subset_sorted = subset.sort_values(by=['priority', 'size'], ascending=[True, False])
         master = subset_sorted.iloc[0].copy()
 
-        # 1. WSPÓŁRZĘDNE: Uśrednianie środka układu
-        master['ra'] = np.round(subset['ra'].mean(), 5)
-        master['dec'] = np.round(subset['dec'].mean(), 5)
+        # 2. WSPÓŁRZĘDNE (Lidera)
+        master['ra'] = subset_sorted.iloc[0]['ra']
+        master['dec'] = subset_sorted.iloc[0]['dec']
 
-        # 2. JASNOŚĆ (MAG): najlepsza dostępna
-        mags_in_hierarchy = subset_sorted['mag'].dropna()
-        master['mag'] = mags_in_hierarchy.iloc[0] if not mags_in_hierarchy.empty else np.nan
-
-        # 3. ROZMIAR (SIZE): najlepszy dostępny
-        sizes_in_hierarchy = subset_sorted['size'].dropna()
-        master['size'] = sizes_in_hierarchy.iloc[0] if not sizes_in_hierarchy.empty else np.nan
-
-        # 4. TEKSTY
-        def combine_text(col):
-            # Pobierz wartości, usuń rzeczywiste NaN (float)
-            items = subset[col].dropna().astype(str)
-            
-            # Filtruj napisy, które wyglądają jak "nan" lub są puste
-            clean_items = [
-                x.strip() for x in items 
-                if x.strip().lower() not in ['nan', 'none', '']
-            ]
-            
-            # Rozdziel po przecinkach, jeśli w jednej komórce było wiele nazw
-            all_parts = []
-            for item in clean_items:
-                all_parts.extend([p.strip() for p in item.split(',') if p.strip()])
-                
-            return ", ".join(sorted(set(all_parts)))
-
-        # extra_info + ID klastrowe
-        master_id = str(master['id'])
-        combined_extra = combine_text('extra_info')
-        all_ids_in_cluster = [str(i) for i in subset['id'].unique() if str(i) != master_id]
-        final_extra_set = set([p.strip() for p in combined_extra.split(',') if p.strip()])
-        final_extra_set.update(all_ids_in_cluster)
-        master['extra_info'] = ", ".join(sorted(final_extra_set))
+        # 3. ROZMIAR (Max z klastra z limitem)
+        sizes = subset['size'].dropna()
+        if not sizes.empty:
+            reasonable = sizes[sizes <= MAX_CLUSTER_SIZE_ARCMIN]
+            if not reasonable.empty:
+                master['size'] = reasonable.max()
+            else:
+                master['size'] = MAX_CLUSTER_SIZE_ARCMIN
         
-        # common_names
-        master['common_names'] = combine_text('common_names')
+        # 4. JASNOŚĆ (Tylko od lidera - bezpieczeństwo danych)
+        # Nie pobieramy mag od sąsiadów, bo mogą to być gwiazdy na tle ciemnej mgławicy.
+        
+        # 5. ŁĄCZENIE DANYCH TEKSTOWYCH
+        
+        # A. ID i Extra Info
+        def clean_split_ids(text_series):
+            unique_items = set()
+            for val in text_series.dropna().astype(str):
+                parts = [p.strip() for p in val.split(',')]
+                for p in parts:
+                    if p and p.lower() != 'nan':
+                        unique_items.add(p)
+            return unique_items
+
+        master_id = str(master['id']).strip()
+        all_ids = clean_split_ids(subset['id'])
+        all_ids.discard(master_id)
+
+        existing_extra = clean_split_ids(subset['extra_info'])
+        final_extra = all_ids.union(existing_extra)
+        master['extra_info'] = ", ".join(sorted(final_extra))
+
+        # B. Common Names (Z nową logiką: usuwanie "The", zawieranie fraz)
+        master['common_names'] = process_common_names(subset['common_names'])
+
         merged_rows.append(master.to_dict())
 
     return pd.DataFrame(merged_rows)
+
+#
+# Generator 
+#
 
 def main():
     print("\n=== GENERATOR KATALOGU ASTRONOMICZNEGO (ENTITY RESOLUTION) ===\n")
