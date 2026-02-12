@@ -583,21 +583,62 @@ def get_user_prefs():
 
     
     print("\nD. Określenie FOV")
-    if (input("Użyć domyślnego setupu RedCat61 + ASI2600MC Pro? [y/n, domyślnie y]: ").lower() or "y") == "y":
-        focal, sw, sh = Config.DEFAULT_FOCAL_LENGTH_MM, Config.DEFAULT_SENSOR_WIDTH_MM, Config.DEFAULT_SENSOR_HEIGHT_MM
-        pitch, rows, cols = Config.DEFAULT_SENSOR_PITCH_UM, Config.DEFAULT_SENSOR_ROWS, Config.DEFAULT_SENSOR_COLS
-    else:
-        focal = float(input(" Ogniskowa (mm, domyślnie 300): "))
-        sw = float(input(" Szerokość sensora (mm, domyślnie 23.5): "))
-        sh = float(input(" Wysokość sensora (mm, domyślnie 15.7): "))
-        pitch = 3.76; rows = 4000; cols = 6000 # dummy defaults
-
-    fov_w, fov_h = FOVCalculator.calculate_fov_deg(focal, sw, sh)
-    print(f"FOV: {fov_w:.2f}° x {fov_h:.2f}°")
+       
+    use_default = input("Użyć domyślnego setupu RedCat61 + ASI2600MC Pro? [y/n, domyślnie y]: ").strip() or "y"
+    use_default = use_default.lower()
     
-    perc = float(input("\nE. Minimalny rozmiar obiektu jako % krótszego boku FOV (domyślnie 10): ") or 10.0)
-    min_size = FOVCalculator.min_object_size_arcmin(fov_w, fov_h, perc)
-    print(f"Minimalny rozmiar obiektu (arcmin): {min_size:.1f}'")
+    if use_default == "y":
+        focal = Config.DEFAULT_FOCAL_LENGTH_MM
+        sw = Config.DEFAULT_SENSOR_WIDTH_MM
+        sh = Config.DEFAULT_SENSOR_HEIGHT_MM
+        pitch = Config.DEFAULT_SENSOR_PITCH_UM
+        rows = Config.DEFAULT_SENSOR_ROWS
+        cols = Config.DEFAULT_SENSOR_COLS
+        print(f"[INFO] Ogniskowa: {focal} mm, sensor: {sw} x {sh} mm, pitch: {pitch} µm, {cols} x {rows} px)")
+    else:
+        try:
+            focal = float(input("• Ogniskowa (mm): ").strip())
+        except Exception:
+            focal = Config.DEFAULT_FOCAL_LENGTH_MM
+    
+        try:
+            sw = float(input("• Szerokość sensora (mm): ").strip())
+            sh = float(input("• Wysokość sensora (mm): ").strip())
+        except Exception:
+            sw = Config.DEFAULT_SENSOR_WIDTH_MM
+            sh = Config.DEFAULT_SENSOR_HEIGHT_MM
+    
+        # nowy blok – parametry dyskretne matrycy
+        try:
+            pitch = float(input("• Wielkość piksela (µm, domyślnie 3.76): ").strip() or 3.76)
+        except Exception:
+            pitch = 3.76
+    
+        try:
+            rows = int(input("• Liczba wierszy sensora (domyślnie 4176): ").strip() or 4176)
+            cols = int(input("• Liczba kolumn sensora (domyślnie 6248): ").strip() or 6248)
+        except Exception:
+            rows = 4176
+            cols = 6248
+    
+    fov_w, fov_h = FOVCalculator.calculate_fov_deg(focal, sw, sh)
+    print(f"[INFO] Szacowany FOV: {fov_w:.2f}° x {fov_h:.2f}°")
+    
+    try:
+        percent_fov = float(
+            input(
+                "\nE. Minimalny rozmiar obiektu jako % krótszego boku FOV (domyślnie 10): "
+            )
+            or 10.0
+        )
+    except Exception:
+        percent_fov = 10.0
+    
+    min_size_arcmin = FOVCalculator.min_object_size_arcmin(
+        fov_w, fov_h, percent_fov
+    )
+    
+    print(f"[INFO] Minimalny rozmiar obiektu (arcmin): {min_size_arcmin:.1f}'.")    
     
     print("\nF. Skala Bortle – określenie zanieczyszczenia światłem:")
     print("• 1  Bortle 1–3  (wieś, ciemne niebo, pomijalne LP)")
@@ -612,7 +653,7 @@ def get_user_prefs():
     
     return {
         "minalt": min_alt, "sunlimit": sun_limit, "minhours": min_hours,
-        "minsizearcmin": min_size, "bortle_range": bortle_rng,
+        "minsizearcmin": min_size_arcmin, "bortle_range": bortle_rng,
         "has_narrowband": has_nb, "prefer_famous": prefer_famous,
         "camera": {"focal": focal, "sw": sw, "sh": sh}
     }

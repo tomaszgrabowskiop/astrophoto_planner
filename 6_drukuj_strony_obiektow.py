@@ -271,7 +271,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num):
     # 3. Kadr FOV
     fov_arcmin, fov_deg = compute_diagonal_fov_arcmin(camera)
     name = row["name"]
-    img_path = f"starplots/{name}.png"
+    img_path = f"starplots/{oid}.png"
     img = plt.imread(img_path)
     extent = get_image_extent(img)
     ax_img = fig.add_subplot(gs[1, 1])
@@ -527,7 +527,7 @@ def main():
     with PdfPages(output_name) as pdf:
         page_num = 13  # numer pierwszej strony obiektu
 
-        for _, row in df.head(2).iterrows(): #.head(2) ogranicza liczbę pól json wstaw po df
+        for _, row in df.iterrows(): #.head(2) ogranicza liczbę pól json wstaw po df
             oid = row["id"]
             sel = row["selected"]
 
