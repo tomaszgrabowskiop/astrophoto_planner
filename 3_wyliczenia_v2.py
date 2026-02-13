@@ -1,47 +1,43 @@
-import time
 import json
+import os
+import time
 
 class SmartCache:
-    def __init__(self, expiration_time=3600):
-        self.cache = {}
-        self.expiration_time = expiration_time
+    def __init__(self, cache_file='cache.json'):
+        self.cache_file = cache_file
+        self.raw_data_cache = {}
+        self.load_cache()
 
-    def get(self, key):
-        if key in self.cache:
-            value, timestamp = self.cache[key]
-            if time.time() - timestamp < self.expiration_time:
-                return value
-            else:
-                del self.cache[key]
-                return None
-        return None
+    def load_cache(self):
+        if os.path.exists(self.cache_file):
+            with open(self.cache_file, 'r') as f:
+                self.raw_data_cache = json.load(f)
 
-    def set(self, key, value):
-        self.cache[key] = (value, time.time())
+    def save_cache(self):
+        with open(self.cache_file, 'w') as f:
+            json.dump(self.raw_data_cache, f)
 
+    def update_cache(self, key, value):
+        self.raw_data_cache[key] = value
+        self.save_cache()
 
-def smart_cache(func):
+    def get_data(self, key):
+        return self.raw_data_cache.get(key, None)
+
+    def calculate_observational_data(self, params):
+        # Placeholder for observational calculations
+        # Ideally, implement the specific calculations based on params
+        return {"result": "calculated data"}
+
+    def incremental_update(self, new_params):
+        # Logic to update parameters and recalculate data
+        for key, value in new_params.items():
+            self.update_cache(key, value)
+        return self.calculate_observational_data(new_params)
+
+# Example usage
+if __name__ == "__main__":
     cache = SmartCache()
-
-    def wrapper(*args):
-        key = json.dumps(args)  # Create a cache key based on function arguments
-        cached_result = cache.get(key)
-        if cached_result is not None:
-            return cached_result
-        
-        result = func(*args)
-        cache.set(key, result)
-        return result
-
-    return wrapper
-
-# Example usage:
-@smart_cache
-
-def expensive_computation(a, b):
-    time.sleep(2)  # Simulate a time-consuming computation
-    return a + b
-
-# Example of using the function with caching
-print(expensive_computation(1, 2))  # This will take time to compute
-print(expensive_computation(1, 2))  # This will return immediately from cache
+    print(cache.get_data('example_key'))  # Example retrieval from cache
+    updated_data = cache.incremental_update({'new_param': 'value'})
+    print(updated_data)
