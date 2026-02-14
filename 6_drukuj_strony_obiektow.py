@@ -18,18 +18,19 @@ from matplotlib.gridspec import GridSpec
 import matplotlib.ticker as ticker
 from matplotlib.dates import DateFormatter
 import textwrap
+from tqdm import tqdm
 
 """
-	Wyciszamy ostrzeżenia AstroPy. Dotyczą: 
-		
-	• ErfaWarning: "dubious year (Note X)": ERFA (silnik metryk czasowych w Astropy) 
-	oznacza rok jako „wątpliwy”, gdy brakuje dokładnych danych o skokach sekundowych
-	 i modelu czasu dla przyszłych lat.
-	• Tried to get polar motions for times after IERS data is valid: Astropy nie ma aktualnych 
-	tabel IERS (ruch bieguna, UT1–UTC), więc używa średnich 50‑letnich
-	 – dokładność spada do poziomu łuku sekundowego.
-	
-	Możesz zakomentować poniższe linie kodu, żeby widziec ostrzeżenia. 
+    Wyciszamy ostrzeżenia AstroPy. Dotyczą: 
+        
+    • ErfaWarning: "dubious year (Note X)": ERFA (silnik metryk czasowych w Astropy) 
+    oznacza rok jako „wątpliwy”, gdy brakuje dokładnych danych o skokach sekundowych
+     i modelu czasu dla przyszłych lat.
+    • Tried to get polar motions for times after IERS data is valid: Astropy nie ma aktualnych 
+    tabel IERS (ruch bieguna, UT1–UTC), więc używa średnich 50‑letnich
+     – dokładność spada do poziomu łuku sekundowego.
+    
+    Możesz zakomentować poniższe linie kodu, żeby widziec ostrzeżenia. 
 """
 
 import warnings
@@ -530,18 +531,24 @@ def main():
     with PdfPages(output_name) as pdf:
         page_num = 13  # numer pierwszej strony obiektu
 
-        for _, row in df.iterrows(): #.head(2) ogranicza liczbę pól json wstaw po df
+        # Tworzenie paska postępu
+        pbar = tqdm(df.iterrows(), total=len(df), unit="obiekt", ncols=119)
+    
+        for _, row in pbar:
             oid = row["id"]
             sel = row["selected"]
-
+    
             month = int(sel["month"])
             assignment_date = datetime.fromisoformat(sel["assignment_date"])
             nm_day = assignment_date.day
-
-            print(f"Generowanie sekcji: {oid} (strona {page_num})")
+    
+            # KROK 1: Aktualizacja opisu paska i generowanie sekcji
+            pbar.set_description(f"Generowanie sekcji: {oid}")
             draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz)
             page_num += 1
-            print(f"Generowanie mapy kontekstowej: {oid} (strona {page_num})")
+    
+            # KROK 2: Aktualizacja opisu paska i generowanie mapy
+            pbar.set_description(f"Generowanie mapy: {oid}")
             draw_context_page(pdf, oid, page_num)
             page_num += 1
 
