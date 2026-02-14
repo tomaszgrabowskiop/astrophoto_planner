@@ -121,7 +121,6 @@ def _display_name(row: pd.Series) -> str:
         return str(nm)
     return str(row.get("id"))
 
-
 # --- KROK 2: KONFIGURACJA KAMERY ---
 def get_camera_params(path: str = VIS_DATA_PATH) -> dict:
     """
@@ -163,7 +162,6 @@ def create_camera_object(camcfg: dict) -> Camera:
 
 def ensure_starplots_dir() -> None:
     STARPLOTS_DIR.mkdir(exist_ok=True)
-
 
 # --- STYL I HELPERY ---
 def make_optic_style() -> PlotStyle:
@@ -226,7 +224,6 @@ def generate_circle_coords_deg(ra_center_deg, dec_center_deg, size_arcmin, steps
         dec_points.append(new_dec)
 
     return ra_points, dec_points
-
 
 # --- SILNIK OPTICPLOT (FOV) ---
 class OpticMapEngine:
@@ -329,7 +326,6 @@ class OpticMapEngine:
             if p is not None:
                 del p
             gc.collect()
-
 
 # --- SILNIK MAPPLOT (MAPA KONTEKSTOWA) ---
 class ContextMapEngine:
@@ -488,24 +484,42 @@ class ContextMapEngine:
                 del p
             gc.collect()
 
-
 # --- GENERATORY FOV/CTX DLA LISTY OBIEKTÓW ---
+# Field of view
+#
 def generate_fov_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
     ensure_starplots_dir()
-    
     cam_params = get_camera_params(VIS_DATA_PATH)
-    tasks = [(obj, cam_params, STARPLOTS_DIR) for obj in objs]
-
-    print(f"\nGenerowanie {len(objs)} kadrów FOV (Równolegle)...")
+    
+    tasks = []
+    skipped_count = 0
     all_results: Dict[str, Path] = {}
+
+    for obj in objs:
+        # Ustal nazwę pliku tak samo jak robi to worker
+        name = str(obj.get("id") or obj.get("name"))
+        expected_path = STARPLOTS_DIR / f"{name}.png"
+
+        if expected_path.exists():
+            # Jeśli plik jest, dodajemy go do wyników i nie tworzymy zadania
+            all_results[name] = expected_path
+            skipped_count += 1
+        else:
+            tasks.append((obj, cam_params, STARPLOTS_DIR))
+    
+    print(f"\nGenerowanie kadrów FOV: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
+    
+    if not tasks:
+        print("Wszystkie pliki FOV już istnieją.")
+        return list(all_results.values())
 
     with ProcessPoolExecutor(max_workers=mp.cpu_count()) as executor:
         future_to_objid = {
-            executor.submit(_worker_render_fov, args): obj["id"]
-            for args, obj in zip(tasks, objs)
+            executor.submit(_worker_render_fov, args): args[0]["id"]
+            for args in tasks
         }
 
-        with tqdm(total=len(objs), desc="Engine FOV", unit="obj", ncols=119) as pbar:
+        with tqdm(total=len(tasks), desc="Engine FOV", unit="obj", ncols=119) as pbar:
             for future in as_completed(future_to_objid):
                 obj_id = future_to_objid[future]
                 try:
@@ -521,25 +535,41 @@ def generate_fov_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
                 pbar.update(1)
 
     valid_paths = list(all_results.values())
-    print(f"Wygenerowano {len(valid_paths)} kadrów FOV.")
+    print(f"Mamy łącznie {len(valid_paths)} kadrów FOV.")
     return valid_paths
 
-
+# Mapy kontekstowe
+#
 def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
     ensure_starplots_dir()
     
-    tasks = [(obj, STARPLOTS_DIR) for obj in objs]
-    print(f"Generowanie {len(objs)} map kontekstowych (Równolegle)...")
-
+    tasks = []
+    skipped_count = 0
     all_results: Dict[str, Path] = {}
+
+    for obj in objs:
+        name = str(obj.get("id") or obj.get("name"))
+        expected_path = STARPLOTS_DIR / f"context_{name}.png"
+
+        if expected_path.exists():
+            all_results[name] = expected_path
+            skipped_count += 1
+        else:
+            tasks.append((obj, STARPLOTS_DIR))
+
+    print(f"Generowanie map kontekstowych: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
+
+    if not tasks:
+        print("Wszystkie mapy kontekstowe już istnieją.\n")
+        return list(all_results.values())
 
     with ProcessPoolExecutor(max_workers=mp.cpu_count()) as executor:
         future_to_objid = {
-            executor.submit(_worker_render_context, args): obj["id"]
-            for args, obj in zip(tasks, objs)
+            executor.submit(_worker_render_context, args): args[0]["id"]
+            for args in tasks
         }
 
-        with tqdm(total=len(objs), desc="Engine CTX", unit="obj", ncols=119) as pbar:
+        with tqdm(total=len(tasks), desc="Engine CTX", unit="obj", ncols=119) as pbar:
             for future in as_completed(future_to_objid):
                 obj_id = future_to_objid[future]
                 try:
@@ -555,9 +585,8 @@ def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
                 pbar.update(1)
 
     valid_paths = list(all_results.values())
-    print(f"Wygenerowano {len(valid_paths)} map kontekstowych.\n")
+    print(f"Mamy łącznie {len(valid_paths)} map kontekstowych.\n")
     return valid_paths
-
 
 # --- MAIN ---
 def main() -> None:
