@@ -574,7 +574,7 @@ def build_monthly_variants(
     # 1. Niewykorzystane hity z Top 108 (może akurat coś się zwolniło? Raczej nie, ale dajmy im priorytet w sortowaniu)
     # 2. Pozostałe obiekty (Reszta świata)
     
-    print("\n[INFO] Rozpoczynam dopychanie wolnych slotów (Sortowanie po SCORE)...")
+    print("\n[INFO] Rozpoczynam dopychanie wolnych slotów (Sortowanie po SCORE).")
     
     # Pobierz resztę kandydatów
     final_pool_ids = unused_top_108 + remaining_after_primary

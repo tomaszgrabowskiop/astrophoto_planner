@@ -13,6 +13,7 @@ import pandas as pd
 from astropy.coordinates import SkyCoord, EarthLocation, get_sun, get_body, AltAz
 from astropy.time import Time
 import astropy.units as u
+import pytz
 from tqdm import tqdm
 
 # =====================================================
@@ -42,8 +43,8 @@ class RawObjectData:
     obj_id: str
     o_alt_all: np.ndarray  # shape: [ndays, N_SAMPLES] - wysokości obiektu
     sun_pts_list: List[List[datetime]]  # [ndays] - momenty przejścia słońca (non ISO format)
-    obj_pts_list: List[List[datetime]] # [ndays] - momenty przejścia obiektu (nonISO format)
-    
+    obj_pts_list: List[List[datetime]]  # [ndays] - momenty przejścia obiektu (nonISO format)
+
 
 @dataclass
 class Config:
@@ -53,6 +54,7 @@ class Config:
     final_hash_file: str = FINAL_HASH_FILE
     auto_reprocess: bool = True
     verbose: bool = True
+    # object_limit dokładamy dynamicznie w run_engine_from_vis_json
 
 
 # =====================================================
@@ -159,7 +161,7 @@ def process_single_object_raw(
     """
     Oblicza TYLKO dane niezależne od parametrów filtrowania.
     (Wysokości, punkty przejścia)
-    
+
     Wynik: RawObjectData
     """
     obj_id, ra, dec = obj_data
@@ -174,14 +176,14 @@ def process_single_object_raw(
     # --- 2. Punkty przejścia (per dzień) ---
     sun_pts_list = []
     obj_pts_list = []
-    
+
     for day_idx, d in enumerate(days):
         t_noon = days_noon[day_idx]
-        
+
         # Crossingi na 0° (uniwersalny punkt odniesienia)
         sun_pts = get_crossings(get_sun(t_noon), 0, t_noon, location)
         obj_pts = get_crossings(coord, 0, t_noon, location)
-        
+
         # Konwersja do ISO format (do serializacji)
         sun_pts_list.append([p.datetime for p in sun_pts])
         obj_pts_list.append([p.datetime for p in obj_pts])
@@ -201,22 +203,25 @@ def compute_raw_data(
 ) -> Dict[str, RawObjectData]:
     """
     Oblicza lub wczytuje dane surowe dla wszystkich obiektów.
-    
+
     Returns: Dict[obj_id, RawObjectData]
     """
     vis = load_vis_data(json_path)
-    
+
     lat = vis["location"]["lat"]
     lon = vis["location"]["lon"]
     location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
     year = vis["year"]
-    
+
     objects = vis["objects"]
+    limit = getattr(cfg, "object_limit", None)
+    if limit is not None:
+        objects = objects[:limit]
     objects_data = [(obj["id"], obj["ra"], obj["dec"]) for obj in objects]
-    
+
     days = pd.date_range(f"{year}-01-01", f"{year}-12-31", freq="D")
     ndays = len(days)
-    
+
     # --- Sprawdzenie cache ---
     if os.path.exists(cfg.raw_pkl_path):
         if cfg.verbose:
@@ -224,27 +229,27 @@ def compute_raw_data(
         try:
             with open(cfg.raw_pkl_path, "rb") as f:
                 all_raw_data = pickle.load(f)
-            
+
             if cfg.verbose:
                 print(f"[CACHE] ✓ Załadowano {len(all_raw_data)} obiektów z cache.")
             return all_raw_data
         except Exception as e:
             if cfg.verbose:
                 print(f"[ERROR] Błąd wczytywania raw cache: {e}, obliczam od nowa...")
-    
+
     # --- Obliczenia raw data ---
     if cfg.verbose:
         print(f"[COMPUTE] Obliczam dane surowe dla {len(objects_data)} obiektów podczas {ndays} dni.")
-    
+
     days_noon = Time([
         datetime.combine(d.date(), datetime.min.time()) + timedelta(hours=12)
         for d in days
     ])
-    
+
     t_night_offsets_hours = np.linspace(2, 19, N_SAMPLES)
-    
+
     all_raw_data = {}
-    
+
     process_raw_func = partial(
         process_single_object_raw,
         days=days,
@@ -252,14 +257,14 @@ def compute_raw_data(
         days_noon=days_noon,
         t_night_offsets_hours=t_night_offsets_hours,
     )
-    
+
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_objid = {
             executor.submit(process_raw_func, obj_data): obj_data[0]
             for obj_data in objects_data
         }
-        
-        with tqdm(total=len(objects_data), desc="Raw compute", unit="obj", ncols=119) as pbar:
+
+        with tqdm(total=len(objects_data), desc="          Raw compute", unit="obj", ncols=119) as pbar:
             for future in as_completed(future_to_objid):
                 obj_id = future_to_objid[future]
                 try:
@@ -269,14 +274,14 @@ def compute_raw_data(
                 except Exception as e:
                     print(f"[ERROR] Błąd dla {obj_id}: {e}")
                 pbar.update(1)
-    
+
     # --- Zapisz raw data ---
     with open(cfg.raw_pkl_path, "wb") as f:
         pickle.dump(all_raw_data, f)
-    
+
     if cfg.verbose:
         print(f"[SAVE] Raw data zapisane do {cfg.raw_pkl_path} ({len(all_raw_data)} obiektów).")
-    
+
     return all_raw_data
 
 
@@ -291,83 +296,68 @@ def process_raw_to_final(
     moon_alt_all: np.ndarray,
     sun_alt_limit_deg: float,
     obj_min_alt_deg: float,
+    vis: dict,
 ) -> Tuple[str, List[Dict[str, Any]]]:
     """
     Konwertuje surowe dane do formatu finalnego z nowymi parametrami.
-    Teraz oblicza również poprawne czasy zmierzchu/świtu dla zadanego sun_alt_limit_deg.
     """
     obj_id = raw_data.obj_id
     o_alt_all = raw_data.o_alt_all
     ndays = len(days)
     results = []
 
-    # Parametry siatki czasowej (muszą być zgodne z N_SAMPLES i H_RANGE)
-    # H_START = 14.0, H_END = 31.0
     t_step = H_RANGE / (N_SAMPLES - 1)
+    tz_name = vis["location"]["tz"]
+    tz = pytz.timezone(tz_name)
 
     for day_idx, d in enumerate(days):
         d_date = d.date() if hasattr(d, "date") else d
         d_midnight = datetime.combine(d_date, datetime.min.time())
-        
+
+        d_midnight_local = tz.localize(d_midnight)
+        tz_offset = d_midnight_local.utcoffset().total_seconds() / 3600.0
+
         o_alt = o_alt_all[day_idx]
         s_alt = sun_alt_all[day_idx]
         m_alt = moon_alt_all[day_idx]
 
-        # --- 1. MASKOWANIE (Jakość) ---
         quality_mask = (o_alt > obj_min_alt_deg) & (s_alt < sun_alt_limit_deg)
-        
+
         transit_rel = np.argmax(o_alt) * (H_RANGE / N_SAMPLES)
         q_hours = np.sum(quality_mask) * (H_RANGE / N_SAMPLES)
         m_hours = np.sum(quality_mask & (m_alt < 0.0)) * (H_RANGE / N_SAMPLES)
         qual_segments = mask_to_segments(quality_mask)
 
-        # --- 2. OBLICZANIE PUNKTÓW ZMIERZCHU (FIX dla 6_drukuj...) ---
-        # Zamiast przekazywać raw_data.sun_pts_list (które są dla 0 stopni),
-        # interpolujemy czas przejścia przez sun_alt_limit_deg na podstawie s_alt.
-        
         new_sun_pts = []
-        
-        # Wykrywamy momenty przecięcia granicy sun_alt_limit_deg
-        # diff zmienia znak w punkcie przecięcia
+
         diff = s_alt - sun_alt_limit_deg
         crossings = np.where(np.diff(np.signbit(diff)))[0]
-        
+
         if len(crossings) > 0:
             for idx in crossings:
-                # Interpolacja liniowa dla dokładniejszego czasu
-                y0, y1 = diff[idx], diff[idx+1]
-                # x to frakcja między indeksem idx a idx+1, gdzie y=0
-                # y = y0 + (y1 - y0) * x  =>  0 = y0 + (y1 - y0) * x  => x = -y0 / (y1 - y0)
+                y0, y1 = diff[idx], diff[idx + 1]
                 fraction = -y0 / (y1 - y0)
-                
-                # Czas w godzinach od północy (startujemy od H_START=14.0)
+
                 h_val = H_START + (idx + fraction) * t_step
-                
-                # Dodajemy do północy
                 pt_time = d_midnight + timedelta(hours=h_val)
                 new_sun_pts.append(pt_time)
         else:
-            # BRAK PRZEJŚĆ (np. białe noce lub noc polarna)
             mean_alt = np.mean(s_alt)
             if mean_alt > sun_alt_limit_deg:
-                # Słońce zawsze POWYŻEJ limitu (białe noce, lato) -> Brak nocy
-                # Skrypt 6_ traktuje pustą listę jako "cała noc", więc musimy podać
-                # punkt zerowy (start = koniec), żeby narysował brak nocy.
                 dummy_t = d_midnight + timedelta(hours=H_START)
                 new_sun_pts = [dummy_t, dummy_t]
             else:
-                # Słońce zawsze PONIŻEJ limitu (zima stulecia, noc polarna) -> Cała noc
-                # Pusta lista w skrypcie 6_ powoduje wypełnienie całego wykresu kolorem nocy.
                 new_sun_pts = []
 
         results.append({
             "day": d_date,
-            "sun_pts": new_sun_pts,  # <--- Podmieniamy na poprawne punkty
+            "sun_pts": new_sun_pts,
             "obj_pts": raw_data.obj_pts_list[day_idx],
             "transit_rel": transit_rel,
             "q_hours": q_hours,
             "m_hours": m_hours,
             "qual_segments": qual_segments,
+            "tz_offset": tz_offset,
         })
 
     return obj_id, results
@@ -380,90 +370,89 @@ def reprocess_to_final(
 ) -> Tuple[Dict[str, List[Dict]], str]:
     """
     Szybka konwersja raw -> final z nowymi parametrami.
-    
+
     Returns: (all_final_data, current_hash)
     """
     vis = load_vis_data(json_path)
-    
+
     params = vis.get("parameters", {})
     obj_min_alt_deg = params.get("minalt", 20.0)
     sun_alt_limit_deg = params.get("sunlimit", -6.0)
-    
+
     year = vis["year"]
     lat = vis["location"]["lat"]
     lon = vis["location"]["lon"]
     location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
-    
+
     days = pd.date_range(f"{year}-01-01", f"{year}-12-31", freq="D")
     ndays = len(days)
-    
+
     current_params_hash = get_params_hash(obj_min_alt_deg, sun_alt_limit_deg)
-    
+
     if cfg.verbose:
         print(f"[REPROCESS] Konwersja {len(all_raw_data)} obiektów do ostatecznego formatu.")
         print(f"[PARAMS] Minimalna wysokość obiektu: {obj_min_alt_deg}°, wysokość słońca pod horyzontem: {sun_alt_limit_deg}°.")
         print(f"[HASH] {current_params_hash}.")
-    
-    # --- Precompute Sun/Moon altitudes dla całego roku ---
+
     days_noon = Time([
         datetime.combine(d.date(), datetime.min.time()) + timedelta(hours=12)
         for d in days
     ])
-    
+
     t_night_offsets_hours = np.linspace(2, 19, N_SAMPLES)
     t_grid_all = days_noon[:, None] + t_night_offsets_hours[None, :] * u.hour
     obstime_all = t_grid_all.reshape(-1)
-    
+
     frame_all = AltAz(obstime=obstime_all, location=location)
-    
+
     sun_icrs_all = get_sun(obstime_all)
     sun_alt_all = sun_icrs_all.transform_to(frame_all).alt.deg.reshape(ndays, N_SAMPLES)
-    
+
     moon_icrs_all = get_body("moon", obstime_all)
     moon_alt_all = moon_icrs_all.transform_to(frame_all).alt.deg.reshape(ndays, N_SAMPLES)
-    
-    # --- Konwersja per obiekt ---
+
     all_final_data = {}
-    
+
     for obj_id, raw_data in tqdm(
         all_raw_data.items(),
-        desc="Reprocess",
+        desc="          Reprocess",
         unit="obj",
         ncols=119,
         total=len(all_raw_data)
     ):
         obj_id_result, results = process_raw_to_final(
             raw_data, days, sun_alt_all, moon_alt_all,
-            sun_alt_limit_deg, obj_min_alt_deg
+            sun_alt_limit_deg, obj_min_alt_deg,
+            vis,
         )
         all_final_data[obj_id_result] = results
-    
+
     if cfg.verbose:
         print(f"[REPROCESS] ✓ Przetworzono {len(all_final_data)} obiektów.")
-    
+
     return all_final_data, current_params_hash
 
 
 def should_reprocess(json_path: str, cfg: Config) -> bool:
     """
     Sprawdza czy warto reprocessować (czy parametry się zmieniły).
-    
+
     Returns: True jeśli trzeba reprocessować
     """
     if not os.path.exists(cfg.final_hash_file):
         return True  # Brak hash pliku - zawsze reprocess
-    
+
     vis = load_vis_data(json_path)
     params = vis.get("parameters", {})
     obj_min_alt_deg = params.get("minalt", 20.0)
     sun_alt_limit_deg = params.get("sunlimit", -6.0)
-    
+
     current_hash = get_params_hash(obj_min_alt_deg, sun_alt_limit_deg)
-    
+
     try:
         with open(cfg.final_hash_file, "r") as f:
             old_hash = f.read().strip()
-        
+
         if current_hash == old_hash:
             return False  # Hash się zgadza - skip reprocess
         else:
@@ -485,95 +474,165 @@ def run_engine_from_vis_json(
 ) -> Dict[str, List[Dict]]:
     """
     Inteligentny system cachowania:
-    
+
     1. Oblicza/wczytuje raw data (wysokości, crossingi) - POWOLNE
     2. Szybko reprocessuje final data gdy parametry się zmienią - SZYBKIE
-    
-    Args:
-        json_path: ścieżka do vis_data.json
-        max_workers: liczba CPU cores dla parallelizacji
-        force_raw: wymuś recalc raw data (ignoruj cache)
-        force_final: wymuś reprocess final data (ignoruj hash)
-        cfg: obiekt Config (jeśli None, wczytaj z pliku)
-    
-    Returns:
-        Dict[obj_id, list_of_results_per_day]
     """
     if cfg is None:
         cfg = load_config()
-    
+
     vis = load_vis_data(json_path)
-    
+
     city_name = vis["location"].get("name", "Unknown")
     year = vis["year"]
     lat = vis["location"]["lat"]
     lon = vis["location"]["lon"]
-    
+
     params = vis.get("parameters", {})
     obj_min_alt_deg = params.get("minalt", 20.0)
     sun_alt_limit_deg = params.get("sunlimit", -6.0)
-    
+
+    # ===== Dialog: ile obiektów przeliczyć =====
+    vis_objects = vis.get("objects", [])
+    total_objects = len(vis_objects)
+
     if cfg.verbose:
+        print(f"[INFO] W vis_data.json jest {total_objects} obiektów.")
+
+    default_limit = 108
+    max_limit = total_objects
+
+    try:
+        user_input = input(
+            f"       Ile obiektów przeliczyć? [domyślnie {default_limit}, Enter = wszystkie]: "
+        ).strip()
+
+        if user_input == "":
+            object_limit = max_limit
+        else:
+            val = int(user_input)
+            if 1 <= val <= max_limit:
+                object_limit = val
+            else:
+                print(f"[WARN] Podano liczbę spoza zakresu 1..{max_limit}, używam wszystkich.")
+                object_limit = max_limit
+    except Exception:
+        print("[WARN] Błąd wejścia, używam wszystkich obiektów.")
+        object_limit = max_limit
+
+    cfg.object_limit = object_limit
+
+    if cfg.verbose:
+        print(f"[INFO] Do przeliczenia: {object_limit} obiektów.")
+
+    if cfg.verbose:
+        lat_str = f"{lat:.2f}"
+        lon_str = f"{lon:.2f}"
         print("=" * 119)
-        print(f"ENGINE: Smart Cache System")
+        print("ENGINE: Smart Cache System")
         print("=" * 119)
-        print(f"[INFO] Lokalizacja: {city_name} ({lat}°, {lon}°)")
+        print(f"[INFO] Lokalizacja: {city_name} ({lat_str}°, {lon_str}°)")
         print(f"[INFO] Rok: {year}")
         print(f"[INFO] Parametry: minimalna wysokość obiektu: {obj_min_alt_deg}°, wysokość słońca pod horyzontem: {sun_alt_limit_deg}°")
         print(f"[INFO] Cache: plik z danymi raw - {cfg.raw_pkl_path}, plik z maskami wyboru - {cfg.final_pkl_path}")
         print("=" * 119)
-    
+
+    # --- Sprawdź ile obiektów jest już w RAW cache ---
+    raw_cache_count = None
+    if os.path.exists(cfg.raw_pkl_path):
+        try:
+            with open(cfg.raw_pkl_path, "rb") as f:
+                raw_cache = pickle.load(f)
+            raw_cache_count = len(raw_cache)
+        except Exception:
+            raw_cache_count = None
+
     # ========== ETAP 1: Raw Data ==========
-    if force_raw and os.path.exists(cfg.raw_pkl_path):
+    local_force_raw = force_raw  # lokalny alias
+
+    if raw_cache_count is not None:
+        if raw_cache_count < object_limit:
+            if cfg.verbose:
+                print(f"[INFO] W RAW cache jest {raw_cache_count} obiektów, wobec {object_limit}. Przeliczam RAW od nowa.")
+            local_force_raw = True
+        else:
+            if cfg.verbose:
+                print(f"[INFO] RAW cache ma {raw_cache_count} obiektów – wystarczające dla limitu {object_limit}.")
+    else:
+        if cfg.verbose:
+            print("[INFO] Brak poprawnego RAW cache – przeliczam RAW od nowa.")
+        local_force_raw = True
+
+    if local_force_raw and os.path.exists(cfg.raw_pkl_path):
         if cfg.verbose:
             print("[FORCE] Usuwam stary cache raw data.")
         os.remove(cfg.raw_pkl_path)
-    
+
     all_raw_data = compute_raw_data(json_path, cfg, max_workers=max_workers)
-    
+
     # ========== ETAP 2: Final Data (z cachingiem parametrów) ==========
     needs_reprocess = force_final or should_reprocess(json_path, cfg)
     
+    # jeśli parametry się nie zmieniły, sprawdź czy FINAL cache ma dość obiektów
+    if not needs_reprocess and os.path.exists(cfg.final_pkl_path):
+        try:
+            with open(cfg.final_pkl_path, "rb") as f:
+                final_cache = pickle.load(f)
+            final_cache_count = len(final_cache)
+        except Exception:
+            final_cache = None
+            final_cache_count = None
+    
+        if final_cache_count is None:
+            if cfg.verbose:
+                print("[INFO] Final cache uszkodzony – przeliczam FINAL od nowa.")
+            needs_reprocess = True
+        elif final_cache_count < object_limit:
+            if cfg.verbose:
+                print(
+                    f"[INFO] W FINAL cache jest tylko {final_cache_count} obiektów, wobec {object_limit}. Przeliczam FINAL od nowa.")
+            needs_reprocess = True
+    
     if needs_reprocess:
         if cfg.verbose:
-            print("[REPROCESS] Parametry się zmieniły, ponowne przeliczenie.")
-        
+            print("[REPROCESS] Parametry się zmieniły lub FINAL cache za mały, ponowne przeliczenie.")
+    
         all_final_data, current_hash = reprocess_to_final(json_path, all_raw_data, cfg)
-        
-        # Zapisz final data + hash
+    
         with open(cfg.final_pkl_path, "wb") as f:
             pickle.dump(all_final_data, f)
-        
         with open(cfg.final_hash_file, "w") as f:
             f.write(current_hash)
-        
+    
         if cfg.verbose:
             print(f"[SAVE] Final data zapisane do: {cfg.final_pkl_path}")
             print(f"[SAVE] Hash zapisany do: {cfg.final_hash_file}")
     else:
         if cfg.verbose:
-            print(f"[CACHE] Parametry się nie zmieniły, wczytuję final cache.")
-        
+            print("[CACHE] Parametry się nie zmieniły, wczytuję final cache.")
+    
         try:
             with open(cfg.final_pkl_path, "rb") as f:
                 all_final_data = pickle.load(f)
-            
+    
+            limit = getattr(cfg, "object_limit", None)
+            if limit is not None:
+                keys = list(all_final_data.keys())[:limit]
+                all_final_data = {k: all_final_data[k] for k in keys}
+    
             if cfg.verbose:
                 print(f"[CACHE] ✓ Załadowano {len(all_final_data)} obiektów z cache.")
         except Exception as e:
             if cfg.verbose:
                 print(f"[ERROR] Błąd wczytywania final cache: {e}, przeliczam ponownie.")
-            
+    
             all_final_data, current_hash = reprocess_to_final(json_path, all_raw_data, cfg)
-            
+    
             with open(cfg.final_pkl_path, "wb") as f:
                 pickle.dump(all_final_data, f)
-            
             with open(cfg.final_hash_file, "w") as f:
                 f.write(current_hash)
     
-    # ========== ETAP 3: Zapis parametrów do vis_data.json ==========
-    # (dla referencji)
     vis["_engine_state"] = {
         "last_processed": datetime.now().isoformat(),
         "raw_data_objects": len(all_raw_data),
@@ -583,7 +642,7 @@ def run_engine_from_vis_json(
     
     if cfg.verbose:
         print("=" * 119)
-        print(f"[SUCCESS] Silnik zakończył pracę.")
+        print("[SUCCESS] Silnik zakończył pracę.")
         print(f"[STATS] Raw objects: {len(all_raw_data)}. Final objects: {len(all_final_data)}.")
         print("=" * 119)
     
@@ -592,21 +651,14 @@ def run_engine_from_vis_json(
 
 if __name__ == "__main__":
     import sys
-    
-    # Opcje:
-    # python 3_wyliczenia.py                  <- auto (smart cache)
-    # python 3_wyliczenia.py --force-raw      <- wymuś recalc raw
-    # python 3_wyliczenia.py --force-final    <- wymuś recalc final
-    # python 3_wyliczenia.py --force-all      <- wszystko od nowa
-    # python 3_wyliczenia.py --verboseoff        <- verbose output is off
-    
+
     force_raw = "--force-raw" in sys.argv or "--force-all" in sys.argv
     force_final = "--force-final" in sys.argv or "--force-all" in sys.argv
     verbose = "--verboseoff" not in sys.argv  # domyślnie verbose
-    
+
     cfg = load_config()
     cfg.verbose = verbose
-    
+
     run_engine_from_vis_json(
         "vis_data.json",
         max_workers=None,

@@ -137,7 +137,7 @@ def get_camera_params(path: str = VIS_DATA_PATH) -> dict:
     camcfg = data.get("parameters", {}).get("camera", {})
 
     print(
-        "Konfiguracja kamery z vis_data.json: "
+        "[INFO] Konfiguracja kamery z vis_data.json: "
         f"f={camcfg['lens_focal_length']} mm, "
         f"sensor {camcfg['sensor_width']} x {camcfg['sensor_height']} mm, "
         f"{camcfg['sensor_cols']} x {camcfg['sensor_rows']} px, "
@@ -318,7 +318,7 @@ class OpticMapEngine:
             return out_png
 
         except Exception as e:
-            print(f"Błąd przy obiekcie {name}: {e}")
+            print(f"[INFO] Błąd przy obiekcie {name}: {e}")
             return None
 
         finally:
@@ -475,7 +475,7 @@ class ContextMapEngine:
             return out_png
 
         except Exception as e:
-            print(f"Błąd przy mapie kontekstowej dla {name}: {e}")
+            print(f"[INFO] Błąd przy mapie kontekstowej dla {name}: {e}")
             return None
 
         finally:
@@ -507,10 +507,10 @@ def generate_fov_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
         else:
             tasks.append((obj, cam_params, STARPLOTS_DIR))
     
-    print(f"\nGenerowanie kadrów FOV: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
+    print(f"\n[INFO] Generowanie kadrów FOV: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
     
     if not tasks:
-        print("Wszystkie pliki FOV już istnieją.")
+        print("[INFO] Wszystkie pliki FOV już istnieją.")
         return list(all_results.values())
 
     with ProcessPoolExecutor(max_workers=mp.cpu_count()) as executor:
@@ -525,7 +525,7 @@ def generate_fov_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
                 try:
                     out_path = future.result()
                 except Exception as e:
-                    print(f"Błąd przy obiekcie {obj_id}: {e}")
+                    print(f"[INFO] Błąd przy obiekcie {obj_id}: {e}")
                     out_path = None
 
                 if out_path is not None:
@@ -535,7 +535,7 @@ def generate_fov_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
                 pbar.update(1)
 
     valid_paths = list(all_results.values())
-    print(f"Mamy łącznie {len(valid_paths)} kadrów FOV.")
+    print(f"[INFO] Mamy łącznie {len(valid_paths)} kadrów FOV.")
     return valid_paths
 
 # Mapy kontekstowe
@@ -557,10 +557,10 @@ def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
         else:
             tasks.append((obj, STARPLOTS_DIR))
 
-    print(f"Generowanie map kontekstowych: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
+    print(f"[INFO] Generowanie map kontekstowych: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
 
     if not tasks:
-        print("Wszystkie mapy kontekstowe już istnieją.\n")
+        print("[INFO] Wszystkie mapy kontekstowe już istnieją.\n")
         return list(all_results.values())
 
     with ProcessPoolExecutor(max_workers=mp.cpu_count()) as executor:
@@ -575,7 +575,7 @@ def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
                 try:
                     out_path = future.result()
                 except Exception as e:
-                    print(f"Błąd przy mapie kontekstowej dla {obj_id}: {e}")
+                    print(f"[INFO] Błąd przy mapie kontekstowej dla {obj_id}: {e}")
                     out_path = None
 
                 if out_path is not None:
@@ -585,27 +585,27 @@ def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
                 pbar.update(1)
 
     valid_paths = list(all_results.values())
-    print(f"Mamy łącznie {len(valid_paths)} map kontekstowych.\n")
+    print(f"[INFO] Mamy łącznie {len(valid_paths)} map kontekstowych.\n")
     return valid_paths
 
 # --- MAIN ---
 def main() -> None:
-    print("Pobieram katalogi dla StarPlot.")
+    print("[INFO] Pobieram katalogi dla StarPlot.")
     preload_open_ngc()
     vis_data = load_vis_data()
     df_objects = build_objects_from_vis_data(vis_data)
 
     if df_objects.empty:
-        print("Brak obiektów z uzupełnionym polem 'selected' w vis_data.json.")
+        print("[INFO] Brak obiektów z uzupełnionym polem 'selected' w vis_data.json.")
         return
 
     selected_objects = df_objects.to_dict(orient="records")
-    print(f"Wybrano {len(selected_objects)} obiektów (wszystkie z 'selected' w vis_data.json).")
+    print(f"[INFO] Wybrano {len(selected_objects)} obiektów (wszystkie z 'selected' w vis_data.json).")
     
     generate_fov_pngs(selected_objects)
     generate_context_pngs(selected_objects)
 
-    print("Gotowe: FOV i context PNG wygenerowane w katalogu 'starplots/'.")
+    print("[INFO] Gotowe: FOV i context PNG wygenerowane w katalogu 'starplots/'.")
 
 
 if __name__ == "__main__":

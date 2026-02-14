@@ -52,6 +52,7 @@ YEAR = 2026
 
 H_START = 14.0      # początek zakresu godzin (oś czasu na wykresach)
 H_RANGE = 17.0      # długość zakresu godzin (np. 14:00–07:00)
+TZ_OFFSET_REF = 1.0  # CET jako punkt odniesienia dla wykresu
 MIN_ALTITUDE = 30   # minimalna wysokość obiektu na wykresach
 
 MONTH_NAMES = {
@@ -309,13 +310,20 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
     s_set, s_rise = [], []
     for d_e in days_data:
         pts = d_e["sun_pts"]
+        tz_offset = d_e.get("tz_offset", TZ_OFFSET_REF)
+        delta = tz_offset - TZ_OFFSET_REF  # +1h dla CEST względem CET
+    
         if len(pts) >= 2:
             t0 = pts[0].hour + pts[0].minute / 60.0
             t1 = pts[1].hour + pts[1].minute / 60.0
-
-            v0 = (t0 + 24 - H_START) if t0 < 12 else (t0 - H_START)
-            v1 = (t1 + 24 - H_START) if t1 < 12 else (t1 - H_START)
-
+    
+            # przesunięcie o delta godzin
+            t0_shifted = t0 + delta
+            t1_shifted = t1 + delta
+    
+            v0 = (t0_shifted + 24 - H_START) if t0_shifted < 12 else (t0_shifted - H_START)
+            v1 = (t1_shifted + 24 - H_START) if t1_shifted < 12 else (t1_shifted - H_START)
+    
             s_set.append(max(0, v0))
             s_rise.append(min(H_RANGE, v1))
         else:
@@ -329,11 +337,22 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
     for d_entry in days_data:
         d = d_entry["day"]
         d_pd = pd.to_datetime(d)
+    
+        tz_offset = d_entry.get("tz_offset", TZ_OFFSET_REF)
+        delta = tz_offset - TZ_OFFSET_REF
+    
         for s_rel, e_rel in d_entry["qual_segments"]:
+            s_rel_shifted = s_rel + delta
+            e_rel_shifted = e_rel + delta
+    
+            # odetnij segmenty wychodzące poza zakres wykresu
+            if e_rel_shifted <= 0 or s_rel_shifted >= H_RANGE:
+                continue
+    
             ax_vis.fill_between(
                 [d_pd, d_pd + timedelta(days=1)],
-                [s_rel, s_rel],
-                [e_rel, e_rel],
+                [s_rel_shifted, s_rel_shifted],
+                [e_rel_shifted, e_rel_shifted],
                 color="#011F4B",
                 lw=0,
                 zorder=1,
@@ -366,7 +385,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
         axis="x", which="minor", length=8, pad=5, labelsize=8, color="gray"
     )
     ax_vis.tick_params(
-        axis="x", which="major", length=4, pad=2, labelsize=6, color="gray"
+        axis="x", which="major", length=4, pad=2, labelsize=5, color="gray"
     )
 
     ax_vis.set_xlim(days_pd[0], days_pd[-1])
@@ -507,7 +526,7 @@ def draw_context_page(pdf, oid, page_num):
 # --- MAIN ---
 
 def main():
-    print("Inicjalizacja danych...")
+    print("[INFO] Inicjalizacja danych.")
 
     vis_data = load_vis_data(JSON_PATH)
     apply_config_from_vis_data(vis_data)
@@ -543,16 +562,16 @@ def main():
             nm_day = assignment_date.day
     
             # KROK 1: Aktualizacja opisu paska i generowanie sekcji
-            pbar.set_description(f"Generowanie FOV: {oid}")
+            pbar.set_description(f"       Generowanie FOV: {oid}")
             draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz)
             page_num += 1
     
             # KROK 2: Aktualizacja opisu paska i generowanie mapy
-            pbar.set_description(f"Generowanie MAP: {oid}")
+            pbar.set_description(f"       Generowanie MAP: {oid}")
             draw_context_page(pdf, oid, page_num)
             page_num += 1
 
-    print(f"\nPROCES ZAKOŃCZONY. Plik: {output_name}")
+    print(f"\n[INFO] Proces zakończony. Plik wynikowy: {output_name}.")
 
 if __name__ == "__main__":
     main()
