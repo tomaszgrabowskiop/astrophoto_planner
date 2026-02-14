@@ -507,7 +507,7 @@ def generate_fov_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
         else:
             tasks.append((obj, cam_params, STARPLOTS_DIR))
     
-    print(f"\n[INFO] Generowanie kadrów FOV: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
+    print(f"\n[INFO] Generowanie kadrów FOV: {len(tasks)} do zrobienia, {skipped_count} pominięto (już istnieją).")
     
     if not tasks:
         print("[INFO] Wszystkie pliki FOV już istnieją.")
@@ -557,7 +557,7 @@ def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
         else:
             tasks.append((obj, STARPLOTS_DIR))
 
-    print(f"[INFO] Generowanie map kontekstowych: {len(tasks)} do zrobienia, {skipped_count} pominięto (istnieją).")
+    print(f"[INFO] Generowanie map kontekstowych: {len(tasks)} do zrobienia, {skipped_count} pominięto (już istnieją).")
 
     if not tasks:
         print("[INFO] Wszystkie mapy kontekstowe już istnieją.\n")

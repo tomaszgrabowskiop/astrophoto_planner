@@ -94,4 +94,4 @@ with open(output, "wb") as f:
 
 # Czyszczenie
 os.remove(output_title)
-print(f"Pliki połączono z tytułem w {output}")
+print(f"[INFO] Pliki połączono z tytułem w {output}.")
