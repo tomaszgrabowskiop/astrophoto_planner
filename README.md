@@ -26,7 +26,7 @@ System pobiera dane z katalogów astronomicznych, **filtruje** je pod kątem lok
 - **Agregacja** danych: łączy katalogi NGC/IC, Sharpless (Sh2), RCW, Barnard, LBN, LDN, Cederblad i PGC. 
 - **Inteligentne** filtrowanie: wybiera obiekty na podstawie szerokości geograficznej, minimalnej wysokości nad horyzontem, jasności (Mag), rozmiaru oraz skali Bortle. 
 - Symulacja FOV: generuje symulacje kadru (Field of View) dla kamery i teleskopu przy użyciu biblioteki `starplot`. 
-- Obliczenia astronomiczne: wylicza okna obserwacyjne (godziny bez Księżyca, wysokość górowania). 
+- Obliczenia astronomiczne: wylicza widoczność w ciągu roku w zależności od podanego progu nocy, widoczność bez Księżyca, wysokość górowania w przykładowej nocy na tle zmierzchu i schodu (cywilnych, żeglarskich i astronomicznych). 
 - Format PDF: generuje gotowy do druku atlas w formacie A4. 
 
 ---
@@ -88,8 +88,8 @@ Uruchom:
 python 2_ograniczenie_katalogu.py
 ```
 
-- Interaktywny skrypt: pyta o lokalizację, parametry teleskopu/kamery, filtry (Ha/OIII) oraz minimalną wysokość obiektu. 
-- Filtruje bazę pod kątem używanego sprzętu. 
+- Interaktywny skrypt: pyta o lokalizację, parametry teleskopu/kamery, filtry (Ha/OIII) oraz minimalną wysokość obiektu, próg wysokości słońca, czas trwania okna obserwacyjnego. 
+- Filtruje bazę pod kątem parametrów użytkownika i określonego minimalnego rozmiaru i jasnosci dla obiektów. 
 - Tworzy plik konfiguracyjny `vis_data.json` z kandydatami do atlasu. 
 
 ### Krok 3: Silnik obliczeniowy (Engine)
@@ -100,9 +100,12 @@ Uruchom:
 python 3_wyliczenia.py
 ```
 
-- Wykonuje ciężkie obliczenia astronomiczne (równolegle na wielu rdzeniach CPU). 
+- Wykonuje ciężkie obliczenia astronomiczne dzięki AstroPy (równolegle na wielu rdzeniach CPU). 
 - Wylicza dokładną widoczność minuta po minucie dla całego roku. 
-- Zapisuje wyniki do `observing_data.pkl`. 
+- Zapisuje wyniki do `observing_data.pkl`.
+- Możliwe wywołanie bez powtarzania obliczeń (sam sprawdza, czy zmieniły się parametry).
+- Podjęćie obliczeń tylko w zakresie maski (parametry: wysokość nad horyzontem, długość okna obserwacyhnego, określenie zmierzchu/świtu).
+- Pełne obliczenia dla obiektów, których nie było wcześniej i przy zmianie lokalizacji.  
 
 ### Krok 4: Plan roczny i wybór wariantów
 
@@ -139,7 +142,7 @@ python 6_drukuj_strony_obiektow.py
 ```
 
 - Składa szczegółowe strony dla każdego wybranego obiektu. 
-- Zawiera wykresy wysokości w noc nowiu, wykres roczny, statystyki godzinowe oraz wygenerowane mapy. 
+- Zawiera wykresy wysokości w nocy, wykres rocznej widoczności, wykres liczby godzin z/bez księżyca oraz wygenerowane mapy. 
 - Tworzy **Część** 2 PDF: `Astrophotography_Planner_2026_2.pdf`. 
 
 ### Krok 7: Finalizacja
@@ -159,7 +162,8 @@ python 7_polacz_pliki_pdf.py
 ## 📝 Uwagi dodatkowe
 
 - Czcionki: skrypt `7_polacz_pliki_pdf.py` jest skonfigurowany pod system macOS (`/System/Library/Fonts/Helvetica.ttc`); na Windows lub Linux należy edytować ścieżkę do czcionek. 
-- Wydajność: krok 3 i 5 wykorzystują wielowątkowość (`multiprocessing`); generowanie map może zająć kilka minut w zależności od liczby obiektów. 
+- Wydajność: krok 3 i 5 wykorzystują wielowątkowość (`multiprocessing`). Mimo to obliczenia AstroPy i generowanie map może zająć sporo czasu w zależności od liczby obiektów i wydajności komputera.
+- TimeZone: użytkownik może wybrać TimeZone. Wpływa na obliczenia, wykresy miesięczne i przykładowej nocy. Nie wpływa na widoczność w skali roku (nie jest zaznaczone przesunięcie godzinowe).  
 - Lokalizacja: domyślnie ustawiony jest rok 2026 i lokalizacja w Polsce; można to zmienić w trakcie działania skryptu nr 2 lub edytując stałe w plikach. 
 
 ---
