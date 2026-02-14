@@ -18,6 +18,7 @@ from erfa import ErfaWarning
 import ssl
 import certifi
 from tqdm import tqdm
+import hashlib
 
 # =====================================================
 # KONFIGURACJA OSTRZEŻEŃ I SSL
@@ -163,6 +164,20 @@ def analyze_famous_status(extra_info_str: str) -> pd.Series:
                 elif is_caldwell_token(token): has_c = True
                 elif is_herschel_token(token): has_h = True
     return pd.Series([has_m, has_c, has_h])
+
+def add_parameters_hash_to_output(out_data: Dict[str, Any], params: Dict[str, Any]) -> None:
+    """
+    Dodaje hash parametrów wpływających na etap 3_ do słownika output.
+    (Ta funkcja jest używana do integracji z 3_wyliczenia_v2.py)
+    """
+    # Hash tylko parametrów które wpływają na maskowanie w 3_
+    obj_min_alt = params.get("minalt", 20.0)
+    sun_alt_limit = params.get("sunlimit", -6.0)
+    
+    s = f"{obj_min_alt:.6f}|{sun_alt_limit:.6f}"
+    params_hash = hashlib.md5(s.encode()).hexdigest()
+    
+    out_data["parameters_hash"] = params_hash
 
 # =====================================================
 # ASTRO MATH
@@ -422,12 +437,16 @@ def calculate_scorecard(row: pd.Series, user_params: Dict[str, Any]) -> Dict[str
 
     # A. SŁAWA (FAMOUS BONUS)
     famous_points = 0.0
-    if row.get("is_messier"): famous_points += SCORE_FAMOUS["messier"]
-    if row.get("is_caldwell"): famous_points += SCORE_FAMOUS["caldwell"]
-    if row.get("is_herschel"): famous_points += SCORE_FAMOUS["herschel"]
+    
+    if row.get("is_messier"):
+        famous_points = SCORE_FAMOUS["messier"]
+    elif row.get("is_caldwell"):
+        famous_points = SCORE_FAMOUS["caldwell"]
+    elif row.get("is_herschel"):
+        famous_points = SCORE_FAMOUS["herschel"]
     
     current_score += famous_points
-    breakdown['famous'] = famous_points
+    breakdown["famous"] = famous_points
 
     # B. TYP + FILTR
     # has_narrowband = True -> index 1 (Narrowband)
@@ -655,7 +674,14 @@ def get_user_prefs():
         "minalt": min_alt, "sunlimit": sun_limit, "minhours": min_hours,
         "minsizearcmin": min_size_arcmin, "bortle_range": bortle_rng,
         "has_narrowband": has_nb, "prefer_famous": prefer_famous,
-        "camera": {"focal": focal, "sw": sw, "sh": sh}
+        "camera": {
+            "lens_focal_length": focal,
+            "sensor_pitch": pitch,
+            "sensor_rows": rows,
+            "sensor_cols": cols,
+            "sensor_width": sw,
+            "sensor_height": sh,
+        },
     }
 
 def print_imputation_stats(df_before: pd.DataFrame, df_after: pd.DataFrame):
@@ -749,7 +775,7 @@ def optimize_atlas_pages(df: pd.DataFrame) -> pd.DataFrame:
     print(f"[INFO] Optymalizacja kadrów (Clustering 2.0°)")
     if df.empty:
         return df
-
+    
     df_sorted = df.sort_values(by=["final_score", "size"], ascending=[False, False]).reset_index(drop=True)
     coords = SkyCoord(ra=df_sorted["ra"].values*u.deg, dec=df_sorted["dec"].values*u.deg)
 
@@ -762,7 +788,7 @@ def optimize_atlas_pages(df: pd.DataFrame) -> pd.DataFrame:
             continue
 
         leader = df_sorted.iloc[i].copy()
-
+        
         # znajdź sąsiadów w promieniu 2°
         seps = coords[i].separation(coords)
         neighbors = np.where(seps < 2.0*u.deg)[0]
@@ -776,7 +802,14 @@ def optimize_atlas_pages(df: pd.DataFrame) -> pd.DataFrame:
             cluster_idx.append(n_idx)
 
         subset = df_sorted.iloc[cluster_idx]
-
+#         target_ids = {"IC1396", "Sh2-131", "LBN455", "LBN457"}
+#         if any(obj_id in target_ids for obj_id in subset["id"].astype(str)):
+#             print("\n[DEBUG] --- Klaster zawierający IC1396 ---")
+#             print("[DEBUG] Leader index:", i)
+#             print("[DEBUG] Leader przed modyfikacją:")
+#             print(leader[["id", "ra", "dec", "size", "final_score"]])
+#             print("[DEBUG] Obiekty w klastrze:")
+#             print(subset[["id", "ra", "dec", "size", "final_score"]])
         # 1) ROZMIAR: bierz max(size) z klastra, ale z limitem na giganty
         sizes = subset["size"].dropna()
         if not sizes.empty:
@@ -820,6 +853,14 @@ def optimize_atlas_pages(df: pd.DataFrame) -> pd.DataFrame:
             # W przeciwnym razie wybierz najlepsze ID wg CAT_ORDER
             extra_ids_str = ", ".join(x for x in valid_ids if x != leader_id)
             best_id = choose_best_catalog_id(leader_id, extra_ids_str)
+        
+        # RA i DEC pobierane ze zmienionego lidera (id)
+        if best_id != leader_id:
+            best_row = subset.loc[subset["id"] == best_id]
+            if not best_row.empty:
+                best_row = best_row.iloc[0]
+                leader["ra"] = best_row["ra"]
+                leader["dec"] = best_row["dec"]
         
         # Extra_info = wszystkie pozostałe ID oprócz best_id
         rem_ids = [x for x in valid_ids if x != best_id]
@@ -1065,7 +1106,7 @@ def main():
         "parameters": params,
         "objects": json_objects
     }
-    
+    add_parameters_hash_to_output(out_data, params)
     with open(Config.OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(out_data, f, indent=2, ensure_ascii=False)
         
