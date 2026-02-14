@@ -9,6 +9,7 @@ import math
 from astropy.coordinates import SkyCoord, AltAz, EarthLocation, get_sun, get_body
 from astropy.time import Time
 import astropy.units as u
+import pytz
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -121,7 +122,7 @@ def apply_config_from_vis_data(vis_data):
     LAT = vis_data["location"]["lat"]
     LON = vis_data["location"]["lon"]
     LOCATION = EarthLocation(lat=LAT * u.deg, lon=LON * u.deg)
-
+    
     # Rok
     YEAR = vis_data["year"]
 
@@ -159,7 +160,7 @@ def format_indeksy(extra_info: str, max_items: int = 7, max_chars: int = 45) -> 
 
 # --- RYSOWANIE STRONY OBIEKTU ---
   
-def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num):
+def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz):
     days_data = all_data[oid]
     days = [d["day"] for d in days_data]
     
@@ -206,7 +207,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num):
     ax_txt.text(0, 1.0, header, fontsize=16, fontweight="bold", va="top")
     lorem = (
         f"|Typ: {row.get('type', '')} | RA: {ra_rounded:.2f} | Dec: {dec_rounded:.2f}|\n"
-        f"|Rozmiar: {size_rounded:.2f}' | Mag.: {mag_rounded:.2f} (28 = nie jest ustalona)|\n"
+        f"|Rozmiar: {size_rounded:.2f}' | Mag.: {mag_rounded:.2f} |\n"
         f"|Indeksy: {indeksy_short}|"
     )
     ax_txt.text(
@@ -222,7 +223,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num):
     # 2. Noc nowiu
     ax_nm = fig.add_subplot(gs[1, 0])
 
-    t_start = datetime(YEAR, month, nm_day, 14, 0)
+    t_start = tz.localize(datetime(YEAR, month, nm_day, 14, 0))
     h_rel = np.linspace(0, 18, 150)
     t_utc = Time(t_start) + h_rel * u.hour
     altaz = AltAz(obstime=t_utc, location=LOCATION)
@@ -510,7 +511,9 @@ def main():
     vis_data = load_vis_data(JSON_PATH)
     apply_config_from_vis_data(vis_data)
     camera = vis_data["parameters"]["camera"]
-
+    # Strefa czasowa
+    tz_name = vis_data.get("location", {}).get("tz", "Europe/Warsaw")
+    tz = pytz.timezone(tz_name)
     with open(PKL_PATH, "rb") as f:
         all_data = pickle.load(f)
 
@@ -536,7 +539,7 @@ def main():
             nm_day = assignment_date.day
 
             print(f"Generowanie sekcji: {oid} (strona {page_num})")
-            draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num)
+            draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz)
             page_num += 1
             print(f"Generowanie mapy kontekstowej: {oid} (strona {page_num})")
             draw_context_page(pdf, oid, page_num)
