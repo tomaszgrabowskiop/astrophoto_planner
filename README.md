@@ -163,7 +163,7 @@ python 7_polacz_pliki_pdf.py
 
 - Czcionki: skrypt `7_polacz_pliki_pdf.py` jest skonfigurowany pod system macOS (`/System/Library/Fonts/Helvetica.ttc`); na Windows lub Linux należy edytować ścieżkę do czcionek. 
 - Wydajność: krok 3 i 5 wykorzystują wielowątkowość (`multiprocessing`). Mimo to obliczenia AstroPy i generowanie map może zająć sporo czasu w zależności od liczby obiektów i wydajności komputera.
-- TimeZone: użytkownik może wybrać TimeZone. Wpływa na obliczenia, wykresy miesięczne i przykładowej nocy. Nie wpływa na widoczność w skali roku (nie jest zaznaczone przesunięcie godzinowe).  
+- TimeZone: użytkownik może wybrać TimeZone. Wpływa na obliczenia, wykresy miesięczne i przykładowej nocy również na wykresie widoczności w skali roku jest zaznaczone przesunięcie godzinowe.  
 - Lokalizacja: domyślnie ustawiony jest rok 2026 i lokalizacja w Polsce; można to zmienić w trakcie działania skryptu nr 2 lub edytując stałe w plikach. 
 
 ---
