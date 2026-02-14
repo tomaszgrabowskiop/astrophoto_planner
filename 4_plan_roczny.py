@@ -34,6 +34,8 @@ import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, AltAz, EarthLocation, get_sun, get_body
 
+import pytz
+
 """
 	Wyciszamy ostrzeżenia AstroPy. Dotyczą: 
 		
@@ -539,9 +541,9 @@ def build_monthly_variants(
         candidates_sorted = sorted(
             candidates_info,
             key=lambda o: (
-                o["n_good"] if o["n_good"] > 0 else 9999,
-                o["annual_vis"],
-                -o["score"],
+                -o["score"],                                                             # 1. najpierw globalny score
+                o["n_good"] if o["n_good"] > 0 else 9999,  # 2. wąskie okna wyżej
+                o["annual_vis"],                                                     # 3. potem suma godzin
             ),
         )
         candidates_ordered = [o["id"] for o in candidates_sorted]
@@ -600,12 +602,13 @@ def plot_month_variant(
     location: EarthLocation,
     min_alt: float,
     sun_alt_limit_deg: float,
+    tz,
 ):
     objs = variant.month_to_objects.get(month, [])
 
     nm_day = get_nm_day(year, month)
 
-    t_start_dt = datetime(year, month, nm_day, int(H_START), 0)
+    t_start_dt = tz.localize(datetime(year, month, nm_day, int(H_START), 0))
     t_start = Time(t_start_dt)
     
     night_h, night_m = compute_night_length_for_date(
@@ -709,6 +712,7 @@ def generate_monthly_pdf(
     location: EarthLocation,
     min_alt: float,
     sunlimit: float,
+    tz,
 ):
     num_pages = 12
     n_var = len(variants)
@@ -771,6 +775,7 @@ def generate_monthly_pdf(
                     location,
                     min_alt=min_alt,
                     sun_alt_limit_deg=sunlimit,
+                    tz=tz,
                 )
             # Wymuś etykiety X na wszystkich subplotach
             for ax in axes:
@@ -910,9 +915,11 @@ def main(
     location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
     
     sunlimit = float(params.get("sunlimit", -12.0))
-
+    tz_name = vis.get("location", {}).get("tz", "Europe/Warsaw")
+    tz = pytz.timezone(tz_name)
     print(f"[INFO] Rok: {year}, minalt={minalt}, minhours={minhours}")
     print(f"[INFO] Lokalizacja: lat={lat:.4f}, lon={lon:.4f}")
+    print(f"[INFO] Strefa czasowa: {tz_name}.")
 
     monthly_avg = compute_monthly_avg_q_hours(observing_data)
     print(f"[INFO] Miesięczna macierz widoczności: {len(monthly_avg)} rekordów.")
@@ -944,6 +951,7 @@ def main(
         location,
         min_alt=minalt,
         sunlimit=sunlimit,
+        tz=tz,
     )
     print(f"[INFO] Zapisano PDF: {output_pdf_path}")
 
