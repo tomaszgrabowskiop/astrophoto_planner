@@ -443,7 +443,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
         axis="x", which="minor", length=8, pad=5, labelsize=8, color="gray"
     )
     ax_hrs.tick_params(
-        axis="x", which="major", length=4, pad=2, labelsize=6, color="gray"
+        axis="x", which="major", length=4, pad=2, labelsize=5, color="gray"
     )
 
     ax_hrs.set_xlim(days_pd[0], days_pd[-1])
