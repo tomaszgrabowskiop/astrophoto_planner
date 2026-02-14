@@ -543,12 +543,12 @@ def main():
             nm_day = assignment_date.day
     
             # KROK 1: Aktualizacja opisu paska i generowanie sekcji
-            pbar.set_description(f"Generowanie sekcji: {oid}")
+            pbar.set_description(f"Generowanie FOV: {oid}")
             draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz)
             page_num += 1
     
             # KROK 2: Aktualizacja opisu paska i generowanie mapy
-            pbar.set_description(f"Generowanie mapy: {oid}")
+            pbar.set_description(f"Generowanie MAP: {oid}")
             draw_context_page(pdf, oid, page_num)
             page_num += 1
 
