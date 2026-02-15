@@ -27,8 +27,10 @@ from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.table import Cell
 
 import astropy.units as u
 from astropy.time import Time
@@ -87,6 +89,9 @@ WORK_LEFT = MARGIN_LEFT_CM / PAGE_W_CM
 WORK_RIGHT = 1.0 - MARGIN_RIGHT_CM / PAGE_W_CM
 WORK_BOTTOM = MARGIN_BOTTOM_CM / PAGE_H_CM
 WORK_TOP = 1.0 - MARGIN_TOP_CM / PAGE_H_CM
+
+# konfiguracja tabeli
+Cell.PAD = 0.01
 
 YEAR = 2026
 MONTH_NAMES_PL = {
@@ -517,10 +522,9 @@ def build_monthly_variants(
         candidates_sorted = sorted(
             candidates_info,
             key=lambda o: (
-                o["annual_vis"],
                 o["n_good"] if o["n_good"] > 0 else 9999,
                 -o["score"],
-                
+                o["annual_vis"],
             ),
         )
         candidates_ordered = [o["id"] for o in candidates_sorted]
@@ -765,6 +769,7 @@ def generate_monthly_pdf(
     min_alt: float,
     sunlimit: float,
     tz,
+    starting_page: int = 1,
 ):
     num_pages = 12
     n_var = len(variants)
@@ -773,7 +778,7 @@ def generate_monthly_pdf(
         # --- SPIS OBIEKTÓW ---
         generate_summary_page(pdf, vis_data, variants)
         # --- KLEJNE STRONY OBIEKTÓW ---
-        for month in range(1, 13):
+        for page_idx, month in enumerate(range(1, 13), start=0):
             # --- TU liczymy rzeczy zależne od miesiąca ---
             nm_day = get_nm_day(year, month)
             night_h, night_m = compute_night_length_for_date(
@@ -833,7 +838,7 @@ def generate_monthly_pdf(
             for ax in axes:
                    ax.tick_params(labelbottom=True)
 
-            page_no = month
+            page_no = starting_page + page_idx
             fig.text(
                    0.5, 0.02, f"{page_no}",
                    ha="center", va="center",
@@ -861,12 +866,8 @@ def generate_summary_page(pdf, vis_data: Dict, variants: List[MonthlyAssignment]
         variant = sel["variant"]
         month_chosen = sel["month"]
         month_name = MONTH_NAMES_PL.get(month_chosen, f"{month_chosen:02d}")
-        
-        # Możliwości: top 3 miesiące (placeholder – policz wcześniej lub tutaj)
-        # Przykład: weź z obj lub wstaw "—"
-        possibilities = obj.get("top_months", "—")
-        
-        table_data.append([name, month_name, f"Wariant {variant}", possibilities])
+  
+        table_data.append([name, month_name, f"{variant}"])
     
     # Sortuj alfabetycznie po nazwie
     table_data.sort(key=lambda x: x[0].lower())
@@ -879,7 +880,7 @@ def generate_summary_page(pdf, vis_data: Dict, variants: List[MonthlyAssignment]
     right_data = table_data[n_half:]
     
     # Nagłówki kolumn
-    col_labels = ["Nazwa", "Miesiąc", "Wariant", "Możliwości"]
+    col_labels = ["Nazwa", "Miesiąc", "Wariant"]
     
     # Stwórz figurę
     fig, ax = plt.subplots(figsize=(PAGE_W_IN, PAGE_H_IN))
@@ -894,7 +895,8 @@ def generate_summary_page(pdf, vis_data: Dict, variants: List[MonthlyAssignment]
         cellText=left_data,
         colLabels=col_labels,
         loc="center",
-        bbox=[0, 0, 0.48, 1],  # lewa połowa: x=0.02, szerokość=0.46
+        bbox=[0, 0, 0.49, 1],  # lewa połowa: x=0.02, szerokość=0.46
+        colWidths=[0.35, 0.13, 0.1],
         cellLoc="left",
     )
     table_left.auto_set_font_size(False)
@@ -902,11 +904,13 @@ def generate_summary_page(pdf, vis_data: Dict, variants: List[MonthlyAssignment]
     table_left.scale(1.1, 1.4)
     # TU ustaw grubość linii lewej tabeli
     for (row, col), cell in table_left.get_celld().items():
-        cell.set_linewidth(0.1)  # np. 0.3 – cieńsze niż domyślne
+        cell.set_linewidth(0)  # np. 0.3 – cieńsze niż domyślne
+        if col == 2:      # pomiń nagłówek: and row > 0:
+            cell.set_text_props(ha="center")
     cells_left = table_left.get_celld()
     for (row, col), cell in cells_left.items():
         if col == 0 and row > 0:  # kolumna 0 = "Nazwa", pomijamy nagłówek (row 0)
-            cell.get_text().set_weight("bold")
+            cell.get_text()
     
     # Kolor nagłówka lewej tabeli
     for (row, col), cell in table_left.get_celld().items():
@@ -920,7 +924,8 @@ def generate_summary_page(pdf, vis_data: Dict, variants: List[MonthlyAssignment]
             cellText=right_data,
             colLabels=col_labels,
             loc="center",
-            bbox=[0.5, 0, 0.48, 1],  # prawa połowa: x=0.52, szerokość=0.46
+            bbox=[0.5, 0, 0.49, 1],  # prawa połowa: x=0.52, szerokość=0.46
+            colWidths=[0.35, 0.13, 0.1],
             cellLoc="left",
         )
         table_right.auto_set_font_size(False)
@@ -928,11 +933,13 @@ def generate_summary_page(pdf, vis_data: Dict, variants: List[MonthlyAssignment]
         table_right.scale(1.1, 1.4)
         # TU ustaw grubość linii lewej tabeli
         for (row, col), cell in table_right.get_celld().items():
-            cell.set_linewidth(0.1)  # np. 0.3 – cieńsze niż domyślne
+            cell.set_linewidth(0)  # np. 0.3 – cieńsze niż domyślne
+            if col == 2:      # pomiń nagłówek: and row > 0:
+                cell.set_text_props(ha="center")
         cells_right = table_right.get_celld()
         for (row, col), cell in cells_right.items():
             if col == 0 and row > 0:
-                cell.get_text().set_weight("bold")
+                cell.get_text()
         
         # Kolor nagłówka prawej tabeli
         for (row, col), cell in table_right.get_celld().items():
@@ -1028,6 +1035,7 @@ def main(
         min_alt=minalt,
         sunlimit=sunlimit,
         tz=tz,
+        starting_page=4,
     )
     print(f"[INFO] Zapisano PDF: {output_pdf_path}")
 

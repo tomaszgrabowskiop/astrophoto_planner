@@ -549,7 +549,7 @@ def main():
 
     output_name = f"Astrophotography_Planner_{YEAR}_2.pdf"
     with PdfPages(output_name) as pdf:
-        page_num = 13  # numer pierwszej strony obiektu
+        page_num = 16  # numer pierwszej strony obiektu
 
         # Tworzenie paska postępu
         pbar = tqdm(df.iterrows(), total=len(df), unit="obiekt", ncols=119)
