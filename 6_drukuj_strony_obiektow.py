@@ -589,7 +589,7 @@ def main():
             nm_day = assignment_date.day
     
             # KROK 1: Aktualizacja opisu paska i generowanie sekcji
-            pbar.set_description(f" Generowanie FOV: {oid}")
+            pbar.set_description(f"       Generowanie FOV: {oid}")
             draw_object_page(pdf, oid, month, nm_day,  row, all_data, camera, page_num,  tz,  best_year_date, best_year_m_hours,)
             page_num += 1
     

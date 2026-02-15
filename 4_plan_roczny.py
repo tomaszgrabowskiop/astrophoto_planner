@@ -66,9 +66,6 @@ H_START = 14.0      # 14:00 (początek osi do rysowania)
 H_RANGE_VIS = 18.0  # rysujemy od 14:00 do 08:00
 N_H_SAMPLES = 150
 
-# minimalna średnia liczba godzin w miesiącu, żeby uznać, że obiekt "istotnie" widoczny
-MIN_AVG_Q_HOURS = 0.5  # możesz dostosować
-
 # Rozmiar strony i marginesy (A4) – w cm
 CM_PER_INCH = 2.54
 PAGE_W_CM = 21.0
@@ -312,9 +309,9 @@ def compute_night_length_for_date(
     return hours, minutes
 
 
-# ------------------------------------------------------------
-# Miesięczne średnie q_hours z observing_data.pkl
-# ------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------
+# Miesięczne najlepsze noce i pełna widoczność roczna  z observing_data.pkl
+# ------------------------------------------------------------------------------------------------
 
 def compute_monthly_best_q_hours(observing_data):
     """
@@ -342,6 +339,22 @@ def compute_monthly_best_q_hours(observing_data):
         .rename(columns={"q_hours": "best_q_hours"})
     )
     return grouped
+def compute_yearly_annual_vis(observing_data, minhours: float) -> Dict[str, float]:
+    """
+    Zwraca słownik: obj_id -> annual_vis,
+    gdzie annual_vis = liczba nocy w roku z q_hours > minhours.
+    """
+    annual_vis_map: Dict[str, float] = {}
+
+    for obj_id, day_list in observing_data.items():
+        n_nights = 0
+        for rec in day_list:
+            qh = float(rec.get("q_hours", 0.0))
+            if qh > minhours:
+                n_nights += 1
+        annual_vis_map[obj_id] = float(n_nights)
+
+    return annual_vis_map
 
 # ---------------------------------------------------------------------
 # Budowa wariantów A/B/C... – miesięczna dystrybucja
@@ -350,9 +363,10 @@ def compute_monthly_best_q_hours(observing_data):
 def build_monthly_variants(
     vis_data: Dict,
     monthly_avg: pd.DataFrame,
+    min_avg_q_hours: float,
     block_size: int = 36,
     per_month_capacity: int = 3,
-    min_avg_q_hours: float = MIN_AVG_Q_HOURS,
+    annual_vis_map: Dict[str, float] = None,
 ) -> List[MonthlyAssignment]:
     """
     Tworzy warianty A, B, C...
@@ -365,6 +379,9 @@ def build_monthly_variants(
     - Kontynuuje dopóki są obiekty I dopóki istnieją wolne sloty.
     - Na końcu wypisuje raport: ile z Top (3 × block_size) udało się ułożyć, ile slotów zostało, itd.
     """
+    if annual_vis_map is None:
+        annual_vis_map = {}
+    
     # score per obj
     scores = {obj["id"]: float(obj.get("score", 0.0)) for obj in vis_data["objects"]}
 
@@ -388,7 +405,7 @@ def build_monthly_variants(
             good_months = [m for m, v in month_map.items() if v >= min_avg_q_hours]
             n_good = len(good_months)
             # annual_vis = suma najlepszych nocy w roku
-            annual_vis = sum(month_map.values()) if month_map else 0.0
+            annual_vis = float(annual_vis_map.get(oid, 0.0))
             # sortowanie miesięcy wg najlepszej nocy malejąco
             best_months_sorted = sorted(
                 month_map.items(), key=lambda x: x[1], reverse=True
@@ -971,17 +988,21 @@ def main(
     lat = vis["location"]["lat"]
     lon = vis["location"]["lon"]
     location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
-    
+    city = vis.get("location", {}).get("name", "nieznana")
     sunlimit = float(params.get("sunlimit", -12.0))
     tz_name = vis.get("location", {}).get("tz", "Europe/Warsaw")
     tz = pytz.timezone(tz_name)
-    print(f"[INFO] Rok: {year}, minalt={minalt}, minhours(best)={minhours}")
-    print(f"[INFO] Lokalizacja: lat={lat:.4f}, lon={lon:.4f}")
-    print(f"[INFO] Strefa czasowa: {tz_name}.")
+    print(f"[INFO] Rok: {year}")
+    print(f"       Lokalizacja: {city} ({lat:.2f}°N, {lon:.2f}°E)")
+    print(f"       Strefa czasowa: {tz_name}")
+    print(f"       Minimalna wysokość nad horyzontem {minalt}°")
+    print(f"       Minimalne okno obserwacji: {minhours}h")
 
     # UŻYWAMY BEST ZAMIAST AVG
     monthly_best = compute_monthly_best_q_hours(observing_data)
-    print(f"[INFO] Miesięczna macierz najlepszych nocy: {len(monthly_best)} rekordów.")
+    print(f"       Miesięczna macierz najlepszych nocy: {len(monthly_best)} rekordów.")
+    annual_vis_map = compute_yearly_annual_vis(observing_data, minhours)
+    print(f"       Macierz widoczności rocznej: {len(annual_vis_map)} zliczonych obiektów.")
 
     if monthly_best.empty:
         print("[WARN] Brak danych miesięcznych najlepszych nocy (q_hours). Przerywam.")
@@ -990,16 +1011,16 @@ def main(
     total_objects = len(vis["objects"])
     try:
         user_input = input(
-            f"       Podaj wielkość bloku, na którą będzie dzielona liczba wszystkich "
+            f"[USER] Podaj wielkość bloku, na którą będzie dzielona liczba wszystkich "
             f"{total_objects} obiektów [Enter = 36]: "
         )
         chosen_block_size = int(user_input) if user_input.strip() else 36
     except ValueError:
-        print("[INFO] Błąd: Wpisano niepoprawną wartość. Przyjęto domyślnie 36.")
+        print("[WARN] Błąd: Wpisano niepoprawną wartość. Przyjęto domyślnie 36.")
         chosen_block_size = 36
     
     try:
-        user_input = input("       Podaj liczbę obiektów w wariancie [Enter = 3]: ")
+        user_input = input("[USER] Podaj liczbę obiektów w wariancie [Enter = 3]: ")
         p_capacity = int(user_input) if user_input.strip() else 3
     except ValueError:
         print("[INFO] Błąd: Wpisano niepoprawną wartość. Przyjęto domyślnie 3.")
@@ -1011,6 +1032,7 @@ def main(
         block_size=chosen_block_size,
         per_month_capacity=p_capacity,
         min_avg_q_hours=minhours,      # próg dot. best_q_hours w miesiącu
+        annual_vis_map=annual_vis_map,
     )
 
     obj_in_month = 3 * p_capacity
