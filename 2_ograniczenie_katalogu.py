@@ -364,11 +364,6 @@ def compute_max_altitude(lat: float, dec: float) -> float:
     sin_alt_max = np.sin(lat_rad) * np.sin(dec_rad) + np.cos(lat_rad) * np.cos(dec_rad)
     return np.degrees(np.arcsin(np.clip(sin_alt_max, -1.0, 1.0)))
 
-def compute_rarity_score(max_altitude: float, months_observable: int) -> float:
-    alt_rarity = 0.0 if max_altitude >= 70 else (0.3 if max_altitude >= 50 else (0.7 if max_altitude >= 35 else 1.0))
-    month_rarity = 0.0 if months_observable >= 6 else (0.3 if months_observable >= 4 else (0.7 if months_observable >= 2 else 1.0))
-    return (alt_rarity + month_rarity) / 2.0
-
 # =====================================================
 # IMPUTATION (UZUPEŁNIANIE DANYCH)
 # =====================================================
@@ -874,7 +869,6 @@ def optimize_atlas_pages(df: pd.DataFrame) -> pd.DataFrame:
 
     return pd.DataFrame(final_objs)
 
-
 # =====================================================
 # MAIN
 # =====================================================
@@ -958,7 +952,6 @@ def main():
         print("Brak obiektów po filtrze czasu widoczności.")
         return
 
-    
     # 6. SCORING LOOP (THE FUNNEL)
     scored_rows = []
     
@@ -966,14 +959,7 @@ def main():
     for i, (_, row) in enumerate(df.iterrows()):
         # Pobierz dane widoczności
         hours = hours_per_month[i]  # Godziny per miesiąc (dla JSON)
-        
-        # ODRZUCENIE "DUCHÓW LBN":
-        #sb = calculate_surface_brightness(row['mag'], row['size'])
-        # Jeśli SB > 16.0 (bardzo ciemne powierzchniowo) ORAZ jasność była szacowana (niepewna)
-        # To prawie na pewno jest wielki, ciemny cirrus galaktyczny z katalogu LBN/LDN.
-        #if row['mag_source'] == 'estimated' and sb > 16.0:
-        #    continue 
-            
+          
         # Oblicz miesiące obserwowalne (dla rarity_score)
         months_obs = int(np.sum(hours >= params["minhours"]))
         
@@ -983,7 +969,6 @@ def main():
               
         # Max Alt i rarity
         max_alt = compute_max_altitude(loc["lat"], row["dec"])
-        rarity = compute_rarity_score(max_alt, months_obs)
         
         # Zapisz do listy
         r_dict = row.to_dict()
@@ -991,11 +976,7 @@ def main():
             "final_score": final_score,
             "base_score": final_score,
             "score_breakdown": score_res["breakdown"],
-            "hours": hours.tolist(),  # ← Godziny per miesiąc
             "maxalt": max_alt,
-            "monthsobservable": months_obs,
-            "rarity_score": rarity,
-            "nights_above_threshold": int(nights_above_threshold[i]) ,
             "is_messier": bool(row.get("is_messier", False)),
             "is_caldwell": bool(row.get("is_caldwell", False)),
             "is_herschel": bool(row.get("is_herschel", False)),
@@ -1008,12 +989,11 @@ def main():
         print("Brak obiektów po scoringu.")
         return
     
-    # ZASTĄP dotychczasowy prosty soft-cut:
     df_scored = apply_adaptive_soft_cut(
         df_scored,
-        base_min_score=10.0,     # Twój dotychczasowy próg
-        min_len_for_cut=500,     # od jakiej liczności używać percentyla
-        keep_top_percent=70.0  # zachowaj górne 70% najlepszych
+        base_min_score=10.0,     # Dotychczasowy próg
+        min_len_for_cut=500,     # Od jakiej liczności używać percentyla
+        keep_top_percent=70.0  # Zachowaj górne x% najlepszych
     )
 
     if df_scored.empty: print("[INFO] Brak obiektów po filtracji."); return
@@ -1033,7 +1013,7 @@ def main():
     print(f"       ✓ Pozostało {fmt(len(df_final))} obiektów.")
     
     # 9. DISPLAY & SAVE
-    MAX_PRINT_ROWS = 100  # Ustaw limit (pasuje do Twojego if i >= 300)
+    MAX_PRINT_ROWS = 100  # Ustaw limit 
     
     print("="*119)
     print(f"{'Nr':>3} {'ID':<12} {'Extra':<25} {'Common name':<25} {'Typ':<8} "
@@ -1067,7 +1047,6 @@ def main():
     json_objects = []
     
     for _, row in df_final.iterrows():
-        hours_data = row["hours"] if isinstance(row["hours"], list) else np.array(row["hours"], dtype=float).tolist()
         
         is_fam = bool(row.get("is_messier", False) or row.get("is_caldwell", False) or row.get("is_herschel", False))
 
@@ -1088,9 +1067,6 @@ def main():
             # --- Punktacja i Widoczność (Mapowanie zmiennych) ---
             "score": float(row["final_score"]),          
             "max_altitude_year": float(row["maxalt"]),   
-            "monthly_hours_total": hours_data,           
-            "months_observable": int(row["monthsobservable"]), 
-            "rarity_score": float(row.get("rarity_score", 0.0)), 
 
             # --- Flagi (Wymagają rzutowania na bool) ---
             "is_messier": bool(row.get("is_messier", False)),
