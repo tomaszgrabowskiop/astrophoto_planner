@@ -162,7 +162,7 @@ def format_indeksy(extra_info: str, max_items: int = 7, max_chars: int = 45) -> 
 
 # --- RYSOWANIE STRONY OBIEKTU ---
   
-def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz):
+def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz, best_year_date, best_year_m_hours,):
     days_data = all_data[oid]
     days = [d["day"] for d in days_data]
     
@@ -264,12 +264,12 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
     ax_nm.tick_params(axis='both', which='major', labelsize=8)
 
     ax_nm.set_title(
-        f"Wysokość obiektu w nocy {nm_day:02d}.{month:02d}.",
-        loc="left",
-        fontsize=10,
-    )
+            (f"Wysokość obiektu {nm_day:02d}.{month:02d}. Max: {best_year_date.day:02d}.{best_year_date.month:02d}/{best_year_m_hours:.1f}h"
+            ),
+            loc="left",
+            fontsize=10,
+        )
     ax_nm.set_ylabel("Wysokość [°]")
-    ax_nm.legend(loc="upper right", fontsize=8)
 
     # 3. Kadr FOV
     fov_arcmin, fov_deg = compute_diagonal_fov_arcmin(camera)
@@ -396,7 +396,7 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
     ax_vis.grid(
         which="minor", axis="y", color="white", linewidth=0.2, alpha=0.9, zorder=3
     )
-    ax_vis.set_title("Widoczność obiektu w ciągu roku", fontsize=10, loc="left")
+    ax_vis.set_title(f"Widoczność obiektu w ciągu roku (strefa czasowa: {tz.zone})", fontsize=10, loc="left")
 
     # 5. Quality Hours
     ax_hrs = fig.add_subplot(gs[3, :])
@@ -545,6 +545,7 @@ def main():
 
     # sortowanie alfabetyczne po ID
     df = df.sort_values("id")
+    #df = df.head(1)
 
     output_name = f"Astrophotography_Planner_{YEAR}_2.pdf"
     with PdfPages(output_name) as pdf:
@@ -556,14 +557,40 @@ def main():
         for _, row in pbar:
             oid = row["id"]
             sel = row["selected"]
-    
             month = int(sel["month"])
+            days_data = all_data[oid]
+            best_month_entry = None
+            for d_entry in days_data:
+                d = d_entry["day"]
+                if d.month != month:
+                    continue
+                if best_month_entry is None or d_entry["m_hours"] > best_month_entry["m_hours"]:
+                    best_month_entry = d_entry
+            assignment_date = datetime.fromisoformat(sel["assignment_date"])
+            if best_month_entry is not None:
+                best_month_date = best_month_entry["day"]
+                nm_day = best_month_date.day
+            else:
+                best_month_date = assignment_date
+                nm_day = assignment_date.day
+            best_year_entry = None
+            for d_entry in days_data:
+                if best_year_entry is None or d_entry["m_hours"] > best_year_entry["m_hours"]:
+                    best_year_entry = d_entry
+            
+                if best_year_entry is not None:
+                    best_year_date = best_year_entry["day"]
+                    best_year_m_hours = float(best_year_entry["m_hours"])
+                else:
+                    best_year_date = best_month_date
+                    best_year_m_hours = 0.0
+            
             assignment_date = datetime.fromisoformat(sel["assignment_date"])
             nm_day = assignment_date.day
     
             # KROK 1: Aktualizacja opisu paska i generowanie sekcji
-            pbar.set_description(f"       Generowanie FOV: {oid}")
-            draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz)
+            pbar.set_description(f" Generowanie FOV: {oid}")
+            draw_object_page(pdf, oid, month, nm_day,  row, all_data, camera, page_num,  tz,  best_year_date, best_year_m_hours,)
             page_num += 1
     
             # KROK 2: Aktualizacja opisu paska i generowanie mapy
