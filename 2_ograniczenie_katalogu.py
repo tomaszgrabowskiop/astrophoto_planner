@@ -586,13 +586,13 @@ class LocationManager:
 def get_user_prefs():
     print("="*119 + "\nKROK 2: PARAMETRY WIDOCZNOŚCI I FOV\n" + "="*119)
     
-    min_alt = float(input("A. Minimalna wysokość obiektu nad horyzontem (domyślnie 25°): ") or 25.0)
-    min_hours = float(input("\nB. Minimalna liczba godzin, którą obiekt jest widoczny w nocy powyżej progu wysokości (domyślnie 3): ") or 3.0)
+    min_alt = float(input("A. Minimalna wysokość obiektu nad horyzontem [domyślnie 25°]: ") or 25.0)
+    min_hours = float(input("\nB. Minimalna liczba godzin, którą obiekt jest widoczny w nocy powyżej progu wysokości [domyślnie 3]: ") or 3.0)
     print("\nC. Ciemność nieba – kąt słońca pod horyzontem:")
     print("• zmierzch cywilny  (-6°)")
     print("• zmierzch żeglarski (-12°)")
     print("• zmierzch astronomiczny (-18°)")
-    sl_choice = input("Możesz wpisać dowolną sensowną wartość, która oznacza liczbę stopni pod horyzontem (domyślnie 12°): ").strip() or "12"
+    sl_choice = input("Możesz wpisać dowolną sensowną wartość, która oznacza liczbę stopni pod horyzontem [domyślnie 12°]: ").strip() or "12"
     sun_limit = -float(sl_choice)
 
     
@@ -624,13 +624,13 @@ def get_user_prefs():
     
         # nowy blok – parametry dyskretne matrycy
         try:
-            pitch = float(input("• Wielkość piksela (µm, domyślnie 3.76): ").strip() or 3.76)
+            pitch = float(input("• Wielkość piksela [µm, domyślnie 3.76]: ").strip() or 3.76)
         except Exception:
             pitch = 3.76
     
         try:
-            rows = int(input("• Liczba wierszy sensora (domyślnie 4176): ").strip() or 4176)
-            cols = int(input("• Liczba kolumn sensora (domyślnie 6248): ").strip() or 6248)
+            rows = int(input("• Liczba wierszy sensora [domyślnie 4176]: ").strip() or 4176)
+            cols = int(input("• Liczba kolumn sensora [domyślnie 6248]: ").strip() or 6248)
         except Exception:
             rows = 4176
             cols = 6248
@@ -641,7 +641,7 @@ def get_user_prefs():
     try:
         percent_fov = float(
             input(
-                "\nE. Minimalny rozmiar obiektu jako % krótszego boku FOV (domyślnie 10): "
+                "\nE. Minimalny rozmiar obiektu jako % krótszego boku FOV [domyślnie 10]: "
             )
             or 10.0
         )
