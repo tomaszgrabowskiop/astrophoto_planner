@@ -164,7 +164,6 @@ def _extract_famous_labels(extra_info: str) -> List[str]:
             unique_labels.append(lab)
     return unique_labels
 
-
 def append_famous_labels_to_ids(vis_data: Dict) -> None:
     """
     Modyfikuje vis_data IN-PLACE:
@@ -260,7 +259,6 @@ def save_selected_to_vis_data(
     print(f"[INFO] Statystyki: {assigned_count}/{total_objects} obiektów wybranych "
           f"(warianty {' '.join(v.variant_name for v in variants)})")
 
-
 # ------------------------------------------------------------
 # Noc nowiu w danym miesiącu
 # ------------------------------------------------------------
@@ -313,13 +311,10 @@ def compute_night_length_for_date(
 # Miesięczne średnie q_hours z observing_data.pkl
 # ------------------------------------------------------------
 
-def compute_monthly_avg_q_hours(
-    observing_data: Dict[str, List[Dict]],
-) -> pd.DataFrame:
+def compute_monthly_best_q_hours(observing_data):
     """
-    Zwraca DataFrame:
-    columns = ["id", "month", "avg_q_hours"]
-    gdzie avg_q_hours to średnia q_hours w danym miesiącu (ze wszystkich nocy).
+    Zwraca DataFrame: ["id", "month", "best_q_hours"]
+    gdzie best_q_hours to NAJLEPSZA noc (max q_hours) w danym miesiącu.
     """
     records = []
     for obj_id, day_list in observing_data.items():
@@ -333,13 +328,13 @@ def compute_monthly_avg_q_hours(
 
     df = pd.DataFrame(records)
     if df.empty:
-        return pd.DataFrame(columns=["id", "month", "avg_q_hours"])
+        return pd.DataFrame(columns=["id", "month", "best_q_hours"])
 
     grouped = (
         df.groupby(["id", "month"])["q_hours"]
-        .mean()
+        .max()                        
         .reset_index()
-        .rename(columns={"q_hours": "avg_q_hours"})
+        .rename(columns={"q_hours": "best_q_hours"})
     )
     return grouped
 
@@ -371,27 +366,27 @@ def build_monthly_variants(
     # pełna lista obiektów posortowana po score malejąco
     all_objs_sorted = sorted(scores.keys(), key=lambda oid: scores[oid], reverse=True)
 
-    # pomocnicza struktura: avg_q_hours[obj_id][month] -> float
-    avg_map: Dict[str, Dict[int, float]] = {}
+    # pomocnicza struktura: best_q_hours[obj_id][month] -> float
+    best_map: Dict[str, Dict[int, float]] = {}
     for _, row in monthly_avg.iterrows():
         oid = row["id"]
         m = int(row["month"])
-        v = float(row["avg_q_hours"])
-        avg_map.setdefault(oid, {})[m] = v
+        v = float(row["best_q_hours"])
+        best_map.setdefault(oid, {})[m] = v
 
     # Funkcja pomocnicza: buduje strukturę info o obiektach
     def make_obj_info(oid_list: List[str]) -> Dict[str, Dict]:
         info = {}
         for oid in oid_list:
-            month_map = avg_map.get(oid, {})
-            # liczymy tylko miesiące powyżej progu avg_q_hours
+            month_map = best_map.get(oid, {})
+            # liczymy tylko miesiące, w których najlepsza noc >= progu
             good_months = [m for m, v in month_map.items() if v >= min_avg_q_hours]
             n_good = len(good_months)
+            # annual_vis = suma najlepszych nocy w roku
             annual_vis = sum(month_map.values()) if month_map else 0.0
+            # sortowanie miesięcy wg najlepszej nocy malejąco
             best_months_sorted = sorted(
-                month_map.items(),
-                key=lambda x: x[1],
-                reverse=True
+                month_map.items(), key=lambda x: x[1], reverse=True
             )
             info[oid] = {
                 "id": oid,
@@ -402,7 +397,7 @@ def build_monthly_variants(
                 "best_months_sorted": best_months_sorted,
             }
         return info
-
+        
     # Zbuduj info dla wszystkich obiektów
     all_obj_ids = set(all_objs_sorted)
     obj_info_map = make_obj_info(list(all_obj_ids))
@@ -522,9 +517,10 @@ def build_monthly_variants(
         candidates_sorted = sorted(
             candidates_info,
             key=lambda o: (
+                o["annual_vis"],
                 o["n_good"] if o["n_good"] > 0 else 9999,
                 -o["score"],
-                o["annual_vis"],
+                
             ),
         )
         candidates_ordered = [o["id"] for o in candidates_sorted]
@@ -962,7 +958,8 @@ def main(
     year = vis["year"]
     params = vis.get("parameters", {})
     minalt = float(params.get("minalt", 25.0))
-    minhours = float(params.get("minhours", 3.0))  # na przyszłość, do filtrowania avg_q_hours
+    # minhours interpretujemy teraz jako próg na "najlepszą noc" w miesiącu
+    minhours = float(params.get("minhours", 3.0))
 
     lat = vis["location"]["lat"]
     lon = vis["location"]["lon"]
@@ -971,19 +968,24 @@ def main(
     sunlimit = float(params.get("sunlimit", -12.0))
     tz_name = vis.get("location", {}).get("tz", "Europe/Warsaw")
     tz = pytz.timezone(tz_name)
-    print(f"[INFO] Rok: {year}, minalt={minalt}, minhours={minhours}")
+    print(f"[INFO] Rok: {year}, minalt={minalt}, minhours(best)={minhours}")
     print(f"[INFO] Lokalizacja: lat={lat:.4f}, lon={lon:.4f}")
     print(f"[INFO] Strefa czasowa: {tz_name}.")
 
-    monthly_avg = compute_monthly_avg_q_hours(observing_data)
-    print(f"[INFO] Miesięczna macierz widoczności: {len(monthly_avg)} rekordów.")
+    # UŻYWAMY BEST ZAMIAST AVG
+    monthly_best = compute_monthly_best_q_hours(observing_data)
+    print(f"[INFO] Miesięczna macierz najlepszych nocy: {len(monthly_best)} rekordów.")
 
-    if monthly_avg.empty:
-        print("[WARN] Brak danych miesięcznych q_hours. Przerywam.")
+    if monthly_best.empty:
+        print("[WARN] Brak danych miesięcznych najlepszych nocy (q_hours). Przerywam.")
         return
+
     total_objects = len(vis["objects"])
     try:
-        user_input = input(f"       Podaj wielkość bloku, na którą będzie dzielona liczba wszystkich {total_objects} obiektów [Enter = 36]: ")
+        user_input = input(
+            f"       Podaj wielkość bloku, na którą będzie dzielona liczba wszystkich "
+            f"{total_objects} obiektów [Enter = 36]: "
+        )
         chosen_block_size = int(user_input) if user_input.strip() else 36
     except ValueError:
         print("[INFO] Błąd: Wpisano niepoprawną wartość. Przyjęto domyślnie 36.")
@@ -998,20 +1000,24 @@ def main(
 
     variants = build_monthly_variants(
         vis_data=vis,
-        monthly_avg=monthly_avg,
+        monthly_avg=monthly_best,      # przekazujemy DataFrame z best_q_hours
         block_size=chosen_block_size,
         per_month_capacity=p_capacity,
-        min_avg_q_hours=minhours,  # użyj progu z vis_data.json
+        min_avg_q_hours=minhours,      # próg dot. best_q_hours w miesiącu
     )
+
     obj_in_month = 3 * p_capacity
     obj_in_year = obj_in_month * 12
-    print(f"[INFO] Utworzono {len(variants)} warianty (max. {obj_in_month} DSO w każdym miesiącu, w sumie max. {obj_in_year }).")
-    # NOWE: ZAPIS DO vis_data.json
+    print(
+        f"[INFO] Utworzono {len(variants)} warianty "
+        f"(max. {obj_in_month} DSO w każdym miesiącu, w sumie max. {obj_in_year})."
+    )
+
+    # ZAPIS WYBRANYCH MIESIĘCY/OBIEKTÓW DO vis_data.json
     save_selected_to_vis_data(vis, variants, vis_json_path)
     for v in variants:
         total_assigned = sum(len(objs) for objs in v.month_to_objects.values())
         print(f"[INFO] Wariant {v.variant_name}: łącznie {total_assigned} obiekty.")
-
 
     generate_monthly_pdf(
         output_pdf_path,
@@ -1025,5 +1031,7 @@ def main(
     )
     print(f"[INFO] Zapisano PDF: {output_pdf_path}")
 
+
 if __name__ == "__main__":
     main()
+
