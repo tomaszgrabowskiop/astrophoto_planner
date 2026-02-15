@@ -360,6 +360,34 @@ def compute_yearly_annual_vis(observing_data, minhours: float) -> Dict[str, floa
 # Budowa wariantów A/B/C... – miesięczna dystrybucja
 # ---------------------------------------------------------------------
 
+PRIORITIES = {
+    "ngc": 1, "ic": 1,
+    "sh2": 2,
+    "rcw": 3,
+    "lbn": 4,
+    "ced": 5,
+    "pgc": 6,
+    "barn": 7,
+    "ldn": 8,
+}
+
+def _get_catalog_priority_for_obj(obj: Dict) -> int:
+    """
+    Niższa wartość = wyższy priorytet.
+    Sprawdza id oraz extra_info pod kątem prefiksów z PRIORITIES.
+    """
+    oid = str(obj.get("id", "")).lower()
+    extra = str(obj.get("extra_info", "")).lower()
+
+    def has_prefix(p: str) -> bool:
+        return oid.startswith(p) or p in extra
+
+    for pref, pr in PRIORITIES.items():
+        if has_prefix(pref):
+            return pr
+    return 100  # „reszta świata” – najniższy priorytet
+        
+
 def build_monthly_variants(
     vis_data: Dict,
     monthly_avg: pd.DataFrame,
@@ -371,24 +399,30 @@ def build_monthly_variants(
     """
     Tworzy warianty A, B, C...
 
-    Nowa logika:
-
-    - Bierze bloki po `block_size` obiektów z pełnej listy posortowanej po score.
-    - Każdy blok sortuje wewnętrznie (rzadkości najpierw, potem score, potem annual_vis).
-    - W każdym kroku korzysta z wolnych slotów we wszystkich wariantach (A, B, C).
-    - Kontynuuje dopóki są obiekty I dopóki istnieją wolne sloty.
-    - Na końcu wypisuje raport: ile z Top (3 × block_size) udało się ułożyć, ile slotów zostało, itd.
+    Logika:
+    - dla każdego obiektu mamy:
+        * good_months – miesiące, gdzie najlepsza noc >= min_avg_q_hours
+        * best_months_sorted – miesiące posortowane po best_q_hours malejąco
+        * annual_vis – liczba nocy w roku z q_hours > minhours
+    - sloty: 3 warianty (A,B,C) * per_month_capacity * 12 miesięcy.
+    - krok 1: bierzemy obiekty z score > mediana ("Top"):
+        sortowanie: annual_vis rosnąco, przy remisie score malejąco;
+        każdy obiekt próbujemy wstawić:
+           najlepszy miesiąc z good_months, przechodząc warianty A->B->C,
+           jeśli wszystkie dobre miesiące pełne – obiekt odpada.
+    - krok 2: obiekty z score <= mediana ("ogon"):
+        wyliczamy priority z katalogów (PRIORITIES),
+        sortowanie: priority rosnąco, annual_vis rosnąco, score malejąco,
+        takie same zasady przypisywania jak wyżej.
     """
     if annual_vis_map is None:
         annual_vis_map = {}
-    
+
     # score per obj
     scores = {obj["id"]: float(obj.get("score", 0.0)) for obj in vis_data["objects"]}
-
-    # pełna lista obiektów posortowana po score malejąco
     all_objs_sorted = sorted(scores.keys(), key=lambda oid: scores[oid], reverse=True)
 
-    # pomocnicza struktura: best_q_hours[obj_id][month] -> float
+    # best_q_hours[obj_id][month] -> float
     best_map: Dict[str, Dict[int, float]] = {}
     for _, row in monthly_avg.iterrows():
         oid = row["id"]
@@ -396,20 +430,30 @@ def build_monthly_variants(
         v = float(row["best_q_hours"])
         best_map.setdefault(oid, {})[m] = v
 
-    # Funkcja pomocnicza: buduje strukturę info o obiektach
+    # mapa priorytetów katalogowych
+    catalog_priority_map: Dict[str, int] = {}
+    for obj in vis_data["objects"]:
+        oid = obj["id"]
+        catalog_priority_map[oid] = _get_catalog_priority_for_obj(obj)
+
+    # pomocnicza struktura o obiektach
     def make_obj_info(oid_list: List[str]) -> Dict[str, Dict]:
         info = {}
         for oid in oid_list:
             month_map = best_map.get(oid, {})
-            # liczymy tylko miesiące, w których najlepsza noc >= progu
+
+            # miesiące z najlepszą nocą >= progu
             good_months = [m for m, v in month_map.items() if v >= min_avg_q_hours]
             n_good = len(good_months)
-            # annual_vis = suma najlepszych nocy w roku
+
+            # roczna widoczność (z prekomputu)
             annual_vis = float(annual_vis_map.get(oid, 0.0))
-            # sortowanie miesięcy wg najlepszej nocy malejąco
+
+            # top miesiące wg best_q_hours
             best_months_sorted = sorted(
                 month_map.items(), key=lambda x: x[1], reverse=True
             )
+
             info[oid] = {
                 "id": oid,
                 "score": scores.get(oid, 0.0),
@@ -417,14 +461,14 @@ def build_monthly_variants(
                 "n_good": n_good,
                 "annual_vis": annual_vis,
                 "best_months_sorted": best_months_sorted,
+                "catalog_priority": catalog_priority_map.get(oid, 100),
             }
         return info
-        
-    # Zbuduj info dla wszystkich obiektów
+
     all_obj_ids = set(all_objs_sorted)
     obj_info_map = make_obj_info(list(all_obj_ids))
 
-    # Zapisz top 3 miesiące do vis_data (tak jak wcześniej)
+    # top_months do vis_data (bez zmian względem starej wersji)
     id_to_top_months = {}
     for oid, info in obj_info_map.items():
         top3 = info["best_months_sorted"][:3]
@@ -439,14 +483,14 @@ def build_monthly_variants(
         oid = obj["id"]
         obj["top_months"] = id_to_top_months.get(oid, "—")
 
-    # Przygotuj struktury dla wariantów
+    # struktury wariantów
     variant_names = ["A", "B", "C"]
     variants_month_to_objects: Dict[str, Dict[int, List[str]]] = {
         vname: {m: [] for m in range(1, 13)} for vname in variant_names
     }
     assigned_objects: Dict[str, Tuple[str, int]] = {}
 
-    # Funkcja pomocnicza: lista dostępnych slotów
+    # pomocnicze: aktualnie wolne sloty
     def get_available_slots() -> List[Tuple[str, int]]:
         slots: List[Tuple[str, int]] = []
         for vname in variant_names:
@@ -454,142 +498,136 @@ def build_monthly_variants(
             for m in range(1, 13):
                 if len(m_to_objs[m]) < per_month_capacity:
                     slots.append((vname, m))
-        # sortujemy: najpierw A, potem B, C, a w środku po miesiącu rosnąco
+        # A,B,C po kolei, w środku miesiące rosnąco
         slots.sort(key=lambda x: (variant_names.index(x[0]), x[1]))
         return slots
 
-    # Funkcja przypisująca listę kandydatów
-    def assign_objects(candidates: List[str]) -> List[str]:
-        unused: List[str] = []
-        for oid in candidates:
-            if oid in assigned_objects:
+    # próba przypisania JEDNEGO obiektu (bez powrotu do niego później)
+    def assign_single_object(oid: str) -> bool:
+        if oid in assigned_objects:
+            return True  # już przydzielony
+
+        info = obj_info_map.get(oid)
+        if info is None:
+            return False
+
+        good_months = info["good_months"]
+        if not good_months:
+            return False
+
+        available_slots = get_available_slots()
+        if not available_slots:
+            return False
+
+        month_to_free_variants: Dict[int, List[str]] = {}
+        for vname, m in available_slots:
+            month_to_free_variants.setdefault(m, []).append(vname)
+
+        chosen_variant: Optional[str] = None
+        chosen_month: Optional[int] = None
+
+        # idziemy po miesiącach od najlepszego (highest best_q_hours)
+        for m, _val in info["best_months_sorted"]:
+            if m not in good_months:
                 continue
-            info = obj_info_map.get(oid)
-            if info is None:
-                unused.append(oid)
+            variants_for_month = month_to_free_variants.get(m, [])
+            if not variants_for_month:
                 continue
-            good_months = info["good_months"]
-            if not good_months:
-                # obiekt nie ma żadnego miesiąca >= min_avg_q_hours
-                unused.append(oid)
-                continue
-            available_slots = get_available_slots()
-            if not available_slots:
-                # brak slotów w ogóle
-                unused.append(oid)
-                continue
-
-            # mapujemy: miesiąc -> lista wariantów z wolnym miejscem w tym miesiącu
-            month_to_free_variants: Dict[int, List[str]] = {}
-            for vname, m in available_slots:
-                month_to_free_variants.setdefault(m, []).append(vname)
-
-            chosen_variant: Optional[str] = None
-            chosen_month: Optional[int] = None
-
-            # próba przypisania do najlepszego możliwego miesiąca
-            for m, avg_val in info["best_months_sorted"]:
-                if m not in good_months:
-                    continue
-                variants_for_month = month_to_free_variants.get(m, [])
-                if not variants_for_month:
-                    continue
-                vname = variants_for_month[0]
-                chosen_variant = vname
-                chosen_month = m
-                break
-
-            if chosen_variant is None or chosen_month is None:
-                # nie udało się dopasować żadnego miesiąca z wolnym slotem
-                unused.append(oid)
-                continue
-
-            variants_month_to_objects[chosen_variant][chosen_month].append(oid)
-            assigned_objects[oid] = (chosen_variant, chosen_month)
-
-        return unused
-
-    # --- GŁÓWNA PĘTLA PO BLOKACH ---
-    offset = 0
-    unused_prev: List[str] = []
-
-    while True:
-        # Weź kolejny blok z pełnej listy
-        block = all_objs_sorted[offset: offset + block_size]
-        if not block:
-            # koniec listy obiektów
+            vname = variants_for_month[0]  # A, potem B, C
+            chosen_variant = vname
+            chosen_month = m
             break
 
-        # Sprawdź, czy są jeszcze jakiekolwiek wolne sloty
-        free_slots = get_available_slots()
-        if not free_slots:
-            # wszystko zajęte, nie ma sensu iść dalej
+        if chosen_variant is None or chosen_month is None:
+            return False
+
+        variants_month_to_objects[chosen_variant][chosen_month].append(oid)
+        assigned_objects[oid] = (chosen_variant, chosen_month)
+        return True
+
+    # --- KROK 1: Top (score > mediana) ---
+
+    all_scores_list = [scores[oid] for oid in all_objs_sorted]
+    median_score = np.median(all_scores_list) if all_scores_list else 0.0
+
+    top_ids = [oid for oid in all_objs_sorted if scores.get(oid, 0.0) > median_score]
+    rest_ids = [oid for oid in all_objs_sorted if scores.get(oid, 0.0) <= median_score]
+
+    # sortowanie Top:
+    #  - annual_vis rosnąco (rzadkie w roku pierwsze)
+    #  - score malejąco
+    top_sorted = sorted(
+        [oid for oid in top_ids if oid in obj_info_map],
+        key=lambda oid: (
+            obj_info_map[oid]["annual_vis"],
+            -obj_info_map[oid]["score"],
+        ),
+    )
+
+    for oid in top_sorted:
+        if not get_available_slots():
             break
+        assign_single_object(oid)
 
-        # Kandydaci = niewykorzystane z poprzedniego przebiegu + aktualny blok
-        candidates = [oid for oid in unused_prev if oid in obj_info_map] + [
-            oid for oid in block if oid in obj_info_map
-        ]
+    # --- KROK 2: „ogon” z priorytetami katalogów ---
 
-        # Sortowanie wewnątrz paczki:
-        # - rzadkości (małe n_good, 0 -> bardzo rzadkie → chcemy je wysoko)
-        # - potem score malejąco
-        # - potem annual_vis rosnąco (rzadsze w skali roku wyżej)
-        candidates_info = [obj_info_map[oid] for oid in candidates if oid in obj_info_map]
-        candidates_sorted = sorted(
-            candidates_info,
-            key=lambda o: (
-                o["n_good"] if o["n_good"] > 0 else 9999,
-                -o["score"],
-                o["annual_vis"],
-            ),
-        )
-        candidates_ordered = [o["id"] for o in candidates_sorted]
+    rest_sorted = sorted(
+        [oid for oid in rest_ids if oid in obj_info_map],
+        key=lambda oid: (
+            obj_info_map[oid]["catalog_priority"],
+            obj_info_map[oid]["annual_vis"],
+            -obj_info_map[oid]["score"],
+        ),
+    )
 
-        # Przypisz i zapamiętaj, co zostało niewykorzystane w tej rundzie
-        unused_prev = assign_objects(candidates_ordered)
+    for oid in rest_sorted:
+        if not get_available_slots():
+            break
+        assign_single_object(oid)
 
-        # Następny blok
-        offset += block_size
+    # --- RAPORT KOŃCOWY (minimalnie zmodyfikowany, ale sens ten sam) ---
 
-    # --- RAPORT KOŃCOWY ---
     print("\n" + "=" * 119)
     print(" RAPORT KOŃCOWY PO PRZYDZIALE DO WARIANTÓW")
     print("=" * 119)
-    
-    # 1) Mediana score – definiuje granicę Top
-    all_scores = [scores[oid] for oid in all_objs_sorted]
-    if all_scores:
-        median_score = np.median(all_scores)
-    else:
-        median_score = 0.0
-    
+
     print(f"[INFO] Mediana score w katalogu: {median_score:.2f}")
-    
-    # 2) Top = wszystkie obiekty z score >= median_score
-    top_objects = [oid for oid in all_objs_sorted if scores.get(oid, 0.0) > median_score]
-    top_count = len(top_objects)
-    
-    # 3) Podział Top na przypisane / nieprzypisane
-    top_assigned = [oid for oid in top_objects if oid in assigned_objects]
-    top_unassigned = [oid for oid in top_objects if oid not in assigned_objects]
-    
+    top_count = len(top_ids)
+    top_assigned = [oid for oid in top_ids if oid in assigned_objects]
+    top_unassigned = [oid for oid in top_ids if oid not in assigned_objects]
+
     if top_count > 0:
         pct_assigned = 100.0 * len(top_assigned) / top_count
         pct_unassigned = 100.0 * len(top_unassigned) / top_count
     else:
-        pct_assigned = 0.0
-        pct_unassigned = 0.0
-    
+        pct_assigned = pct_unassigned = 0.0
+
     print(f"[INFO] Top (score > mediana) – {top_count} obiektów:")
-    print(f"       - Przypisanych: {len(top_assigned)}/{top_count} ({pct_assigned:.1f}%)")
-    print(f"       - Odrzuconych: {len(top_unassigned)}/{top_count} ({pct_unassigned:.1f}%)")
+    print(f" - Przypisanych: {len(top_assigned)}/{top_count} ({pct_assigned:.1f}%)")
+    print(f" - Odrzuconych: {len(top_unassigned)}/{top_count} ({pct_unassigned:.1f}%)")
+    # Szczegóły odrzuconych z Top
+    if top_unassigned:
+        print("\n[INFO] Odrzucone obiekty z Top (score > mediana):")
+        for oid in top_unassigned:
+            info = obj_info_map.get(oid, {})
+            score_val = scores.get(oid, 0.0)
+            best_list = info.get("best_months_sorted", [])[:3]
+            if best_list:
+                best_str_parts = []
+                for m, v in best_list:
+                    best_str_parts.append(f"{m:02d} ({v:.1f}h)")
+                best_str = ", ".join(best_str_parts)
+            else:
+                best_str = "brak danych"
     
-    # 4) Wolne sloty
+            print(
+                f"       • {oid:<8}  Score: {score_val:5.1f} | "
+                f"Najlepsze: {best_str}"
+            )
+            
     free_slots = get_available_slots()
     if free_slots:
         print(f"\n[INFO] Pozostało wolnych slotów: {len(free_slots)}")
-        # Grupujemy dla czytelności
         slots_by_var: Dict[str, List[int]] = {}
         for v, m in free_slots:
             slots_by_var.setdefault(v, []).append(m)
@@ -597,57 +635,50 @@ def build_monthly_variants(
             ms = sorted(slots_by_var.get(v, []))
             if ms:
                 ms_str = ", ".join(str(m) for m in ms)
-                print(f"       - Wariant {v}: miesiące [{ms_str}]")
+                print(f" - Wariant {v}: miesiące [{ms_str}]")
     else:
         print("\n[INFO] Wszystkie sloty zostały wypełnione!")
-    
-    # 5) Przykłady odrzuconych z Top
-    if top_unassigned:
-        print(f"\n[INFO] Odrzucone obiekty z Top (score > mediana):")
-        for oid in top_unassigned[:10]:
-            info = obj_info_map.get(oid)
-            if info:
-                best_stats = info["best_months_sorted"][:3]
-                details_str = ", ".join(f"{m:02d} ({h:.1f}h)" for m, h in best_stats)
-            else:
-                details_str = "Brak danych"
-            print(f"       • {oid:<10} Score: {scores.get(oid):5.1f} | Najlepsze: {details_str}")
-        if len(top_unassigned) > 10:
-            print(f"       ... i {len(top_unassigned)-10} innych.")
-    
-    # 6) Ile obiektów z „gorszej połowy” (poniżej mediany) zostało użytych
+
     assigned_ids = list(assigned_objects.keys())
     assigned_from_top = [oid for oid in assigned_ids if scores.get(oid, 0.0) > median_score]
     assigned_from_rest = [oid for oid in assigned_ids if scores.get(oid, 0.0) <= median_score]
-    
-    print(f"\n[INFO] Obiekty użyte do uzupełnienia slotów z puli poniżej mediany score:")
-    
+    print("\n[INFO] Obiekty użyte do uzupełnienia slotów z puli poniżej mediany score:")
     if assigned_from_rest:
         print(f"       - Lista wszystkich ({len(assigned_from_rest)}) obiektów z tej puli:")
-        for idx, oid in enumerate(assigned_from_rest, start=1):
-            info = obj_info_map.get(oid)
-            if info:
-                best_stats = info["best_months_sorted"][:3]
-                details_str = ", ".join(f"{m:02d} ({h:.1f}h)" for m, h in best_stats)
+        # zachowaj kolejność według score malejąco, jak wcześniej
+        assigned_from_rest_sorted = sorted(
+            assigned_from_rest,
+            key=lambda oid: scores.get(oid, 0.0),
+            reverse=True,
+        )
+        for idx, oid in enumerate(assigned_from_rest_sorted, start=1):
+            info = obj_info_map.get(oid, {})
+            score_val = scores.get(oid, 0.0)
+            best_list = info.get("best_months_sorted", [])[:3]
+            if best_list:
+                best_str_parts = []
+                for m, v in best_list:
+                    best_str_parts.append(f"{m:02d} ({v:.1f}h)")
+                best_str = ", ".join(best_str_parts)
             else:
-                details_str = "Brak danych"
+                best_str = "brak danych"
+    
             print(
-                f"         {idx:3d}. {oid:<10} "
-                f"Score: {scores.get(oid):5.1f} | Najlepsze: {details_str}"
-            )    
-    # 7) Łączne statystyki
+                f"           {idx:2d}. {oid:<8}  Score: {score_val:5.1f} | "
+                f"Najlepsze: {best_str}"
+            )
+    else:
+        print("       (brak obiektów z tej puli użytych do wypełnienia slotów)")
+    print("\n[INFO] Obiekty użyte z puli poniżej mediany score:")
+    if assigned_from_rest:
+        print(f" - Łącznie: {len(assigned_from_rest)} obiektów z tej puli.")
+
     total_assigned = len(assigned_objects)
     total_objects = len(all_objs_sorted)
-    if total_objects > 0:
-        pct_total = 100.0 * total_assigned / total_objects
-    else:
-        pct_total = 0.0
+    pct_total = 100.0 * total_assigned / total_objects if total_objects > 0 else 0.0
     print(f"\n[INFO] Łącznie przypisanych obiektów: {total_assigned}/{total_objects} ({pct_total:.1f}%)")
-    
     print("=" * 119 + "\n")
 
-
-    # Zbuduj listę wynikowych wariantów
     variants: List[MonthlyAssignment] = []
     for vname in variant_names:
         month_to_objects = variants_month_to_objects[vname]
@@ -659,7 +690,6 @@ def build_monthly_variants(
                     month_to_objects=month_to_objects,
                 )
             )
-
     return variants
 
 # ------------------------------------------------------------
