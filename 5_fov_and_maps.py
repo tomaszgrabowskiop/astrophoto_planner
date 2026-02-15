@@ -519,7 +519,7 @@ def generate_fov_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
             for args in tasks
         }
 
-        with tqdm(total=len(tasks), desc="Engine FOV", unit="obj", ncols=119) as pbar:
+        with tqdm(total=len(tasks), desc="       Engine FOV", unit="obj", ncols=119) as pbar:
             for future in as_completed(future_to_objid):
                 obj_id = future_to_objid[future]
                 try:
@@ -569,7 +569,7 @@ def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
             for args in tasks
         }
 
-        with tqdm(total=len(tasks), desc="Engine CTX", unit="obj", ncols=119) as pbar:
+        with tqdm(total=len(tasks), desc="       Engine CTX", unit="obj", ncols=119) as pbar:
             for future in as_completed(future_to_objid):
                 obj_id = future_to_objid[future]
                 try:

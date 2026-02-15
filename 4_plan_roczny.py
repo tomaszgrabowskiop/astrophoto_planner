@@ -603,8 +603,8 @@ def build_monthly_variants(
         pct_assigned = pct_unassigned = 0.0
 
     print(f"[INFO] Top (score > mediana) – {top_count} obiektów:")
-    print(f" - Przypisanych: {len(top_assigned)}/{top_count} ({pct_assigned:.1f}%)")
-    print(f" - Odrzuconych: {len(top_unassigned)}/{top_count} ({pct_unassigned:.1f}%)")
+    print(f"       Przypisanych: {len(top_assigned)}/{top_count} ({pct_assigned:.1f}%)")
+    print(f"       Odrzuconych: {len(top_unassigned)}/{top_count} ({pct_unassigned:.1f}%)")
     # Szczegóły odrzuconych z Top
     if top_unassigned:
         print("\n[INFO] Odrzucone obiekty z Top (score > mediana):")
@@ -635,7 +635,7 @@ def build_monthly_variants(
             ms = sorted(slots_by_var.get(v, []))
             if ms:
                 ms_str = ", ".join(str(m) for m in ms)
-                print(f" - Wariant {v}: miesiące [{ms_str}]")
+                print(f"       Wariant {v}: miesiące [{ms_str}]")
     else:
         print("\n[INFO] Wszystkie sloty zostały wypełnione!")
 
@@ -644,7 +644,7 @@ def build_monthly_variants(
     assigned_from_rest = [oid for oid in assigned_ids if scores.get(oid, 0.0) <= median_score]
     print("\n[INFO] Obiekty użyte do uzupełnienia slotów z puli poniżej mediany score:")
     if assigned_from_rest:
-        print(f"       - Lista wszystkich ({len(assigned_from_rest)}) obiektów z tej puli:")
+        print(f"       Lista wszystkich ({len(assigned_from_rest)}) obiektów z tej puli:")
         # zachowaj kolejność według score malejąco, jak wcześniej
         assigned_from_rest_sorted = sorted(
             assigned_from_rest,
@@ -671,7 +671,7 @@ def build_monthly_variants(
         print("       (brak obiektów z tej puli użytych do wypełnienia slotów)")
     print("\n[INFO] Obiekty użyte z puli poniżej mediany score:")
     if assigned_from_rest:
-        print(f" - Łącznie: {len(assigned_from_rest)} obiektów z tej puli.")
+        print(f"       Łącznie: {len(assigned_from_rest)} obiektów z tej puli.")
 
     total_assigned = len(assigned_objects)
     total_objects = len(all_objs_sorted)
