@@ -13,11 +13,11 @@ System pobiera dane z katalogów astronomicznych, **filtruje** je pod kątem lok
 
 1. Przegląd roczny (kiedy obserwować dany obiekt).
 
-![Widok propozycji miesięcznych](Planner_roczny.png)
+![Widok propozycji miesięcznych](doc/Planner_roczny.png)
 
 2. Szczegółowe strony dla każdego obiektu (wykresy wysokości, kadry FOV, mapy kontekstowe). 
 
-![Strona obiektu](Strona_obiektu.png)
+![Strona obiektu](doc/Strona_obiektu.png)
 
 ---
 
