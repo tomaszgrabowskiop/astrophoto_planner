@@ -1,0 +1,99 @@
+- Name: Object name composed by catalog + number
+    NGC: New General Catalogue
+    IC: Index Catalogue
+    
+- Type: Object type
+    *: Star
+    **: Double star
+    *Ass: Association of stars
+    OCl: Open Cluster
+    GCl: Globular Cluster
+    Cl+N: Star cluster + Nebula
+    G: Galaxy
+    GPair: Galaxy Pair
+    GTrpl: Galaxy Triplet
+    GGroup: Group of galaxies
+    PN: Planetary Nebula
+    HII: HII Ionized region
+    DrkN: Dark Nebula
+    EmN: Emission Nebula
+    Neb: Nebula
+    RfN: Reflection Nebula
+    SNR: Supernova remnant
+    Nova: Nova star
+    NonEx: Nonexistent object
+    Dup: Duplicated object (see NGC or IC columns to find the master object)
+    Other: Other classification (see object notes)
+    
+- RA: Right Ascension in J2000 Epoch (HH:MM:SS.SS)
+
+- Dec: Declination in J2000 Epoch (+/-DD:MM:SS.SS)
+
+- Const: Constellation where the object is located
+    Serpens is expressed as 'Se1' for Serpens Caput and 'Se2' for Serpens Caudi
+
+- MajAx: Major axis, expressed in arcmin
+
+- MinAx: Minor axis, expressed in arcmin
+
+- PosAng: Major axis position angle (North Eastwards)
+
+- B-Mag: Apparent total magnitude in B filter
+
+- V-Mag: Apparent total magnitude in V filter
+
+- J-Mag: Apparent total magnitude in J filter
+
+- H-Mag: Apparent total magnitude in H filter
+
+- K-Mag: Apparent total magnitude in K filter
+
+- SurfBr (only Galaxies): Mean surface brigthness within 25 mag isophot (B-band), expressed in mag/arcsec2
+
+- Hubble (only Galaxies): Morphological type (for galaxies)
+
+- Pax: Parallax, expressed in milliarcseconds
+
+- Pm-RA: Proper motion in RA, expressed in milliarcseconds/year
+
+- Pm-Dec: Proper motion in Dec, expressed in milliarcseconds/year
+
+- RadVel: Radial velocity (heliocentric), expressed in km/s
+
+- Redshift: Redshift (heliocentric)
+
+- Cstar U-Mag (only Planetary Nebulae): Apparent magnitude of central star in U filter
+
+- Cstar B-Mag (only Planetary Nebulae): Apparent magnitude of central star in B filter
+
+- Cstar V-Mag (only Planetary Nebulae): Apparent magnitude of central star in V filter
+
+- M: cross reference Messier number
+
+- NGC: other NGC identification, if the object is listed twice in the catalog
+
+- IC: cross reference IC number, if the object is also listed with that identification
+
+- Cstar Names (only Planetary Nebulae): central star identifications
+
+- Identifiers: cross reference with other catalogs
+
+- Common names: Common names of the object if any
+
+- NED Notes: notes about object exported from NED
+
+- OpenNGC Notes: notes about the object data from OpenNGC catalog
+
+- Sources: sources of data
+    1: NASA Extragalactic Database
+    2: SIMBAD Astronomical Database
+    3: HyperLeda
+    4: Harold Corwin's NGC/IC Positions and Notes
+    5: HEASARC mwsc table
+    6: HEASARC smcclustrs table
+    7: HEASARC lmcextobj table
+    8: HEASARC plnebulae table
+    9: HEASARC lbn table
+    10: HEASARC messier table
+    11: HEASARC lyngaclust table
+    99: OpenNGC revised data
