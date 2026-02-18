@@ -57,7 +57,7 @@ output_title = "tytulowa.pdf"
 output_info = "info_page.pdf"
 pdf1 = f"Astrophotography_Planner_{year_val}_1.pdf"
 pdf2 = f"Astrophotography_Planner_{year_val}_2.pdf"
-output = f"Astrophotography_Planner_{year_val}_{miasto}.pdf"
+output = f"Astrophotography_Planner_{year_val}_{miasto_wyd}.pdf"
 
 # Rejestracja czcionek
 # Rejestracja
