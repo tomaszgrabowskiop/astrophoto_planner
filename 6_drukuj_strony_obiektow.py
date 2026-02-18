@@ -71,22 +71,34 @@ MONTH_NAMES = {
 }
 
 TYPE_NAMES = {
+            "*": "Gwiazda",
+            "**": "Gwiazda Podwójna",
+            "*Ass": "Association of stars",
+            "Nova": "Nova",
             "Gx": "Galaktyka",
             "G": "Galaktyka",
             "S": "Galaktyka spiralna",
             "SB": "Galaktyka spiralna z poprzeczką",
             "E": "Galaktyka eliptyczna",
+            "GPair": "Para Galaktyk",
+            "GTrpl": "Triplet Galaktyk",
+            "GGroup":"Grupa Galaktyk",
             "OC": "Gromada Otwarta",
             "OCl": "Gromada Otwarta",
-            "Cl+N": "Gromada + Mgławica",
+            "GCl": "Gromada kulista",
+            "Cl+N": "Gromada z Mgławicą",
             "GC": "Gromada Kulista",
-            "HII": "Region HII",
+            "HII": "Obszar HII",
             "NB": "Mgławica",
             "Neb": "Mgławica",
+            "EmN": "Mgławica Emisyjna",
             "PN": "Mgławica Planetarna",
+            "RfN": "Mgławica Refleksyjna",
             "DN": "Ciemna Mgławica",
-            "SNR": "Pozostałość Supernowej",
+            "DrkN": "Ciemna Mgławica",
+            "SNR": "Pozostałość po SuperN",
             "Other": "Inny",
+            "NonEx": "Nieistniejący",
         }
 
 # Rozmiar strony i marginesy (A4) – w cm
@@ -571,8 +583,9 @@ def main():
                 best_month_date = best_month_entry["day"]
                 nm_day = best_month_date.day
             else:
-                best_month_date = assignment_date
-                nm_day = assignment_date.day
+                #best_month_date = assignment_date
+                #nm_day = assignment_date.day
+                nm_day = 15
             best_year_entry = None
             for d_entry in days_data:
                 if best_year_entry is None or d_entry["m_hours"] > best_year_entry["m_hours"]:
@@ -585,8 +598,8 @@ def main():
                     best_year_date = best_month_date
                     best_year_m_hours = 0.0
             
-            assignment_date = datetime.fromisoformat(sel["assignment_date"])
-            nm_day = assignment_date.day
+            #assignment_date = datetime.fromisoformat(sel["assignment_date"])
+            #nm_day = assignment_date.day
     
             # KROK 1: Aktualizacja opisu paska i generowanie sekcji
             pbar.set_description(f"       Generowanie FOV: {oid}")
