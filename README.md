@@ -4,7 +4,9 @@ Zestaw skryptów w języku Python służący do generowania spersonalizowanego r
 
 Możesz wywołać `run.sh`, który założy środowisko i będzie uruchamiał kolejne skrypty. Pozwoli Ci też pominąć wybrane kroki. Przydatne, jeśli dokonasz przeliczeń, które są najbardziej czasochłonne i nie będziesz chciał ich powtarzać.
 
-Pełna dokumentacja znajduje się w pliku: ![doc/AstroPhotography Planner – Dokumentacja techniczna.md](doc/AstroPhotography Planner – Dokumentacja techniczna.md)
+Pełna dokumentacja znajduje się w pliku:
+
+![doc/AstroPhotography Planner – Dokumentacja techniczna.md](doc/AstroPhotography Planner – Dokumentacja techniczna.md)
 
 **Powodzenia!**
 
