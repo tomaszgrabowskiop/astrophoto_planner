@@ -215,13 +215,13 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
 
     header = (
         f"{oid}\n"
-        f"|Nazwa: {short_name} | {type_pl} ({obj_type_code})|\n"
+        f"|Nazwa: {short_name} | {type_pl}|\n"
         )
 
     ax_txt.text(0, 1.0, header, fontsize=16, fontweight="bold", va="top")
     lorem = (
         f"|Typ: {row.get('type', '')} | RA: {ra_rounded:.2f} | Dec: {dec_rounded:.2f}|\n"
-        f"|Rozmiar: {size_rounded:.2f}' | Mag.: {mag_rounded:.2f} |\n"
+        f"|Rozmiar: {size_rounded:.2f}' | Mag.: {mag_rounded:.2f}|\n"
         f"|Indeksy: {indeksy_short}|"
     )
     ax_txt.text(
