@@ -40,6 +40,7 @@ Pipeline składa się z następujących kroków, realizowanych kolejno przez oso
 - `observing_data_raw.pkl` – cache surowych danych wysokości obiektu i czasów crossingów Słońca/obiektu, niezależny od progów jakości.
 - `observing_data.pkl` – cache FINAL z wyliczonymi polami `q_hours`, `m_hours`, `qual_segments`, `sun_pts` i `tz_offset` dla każdego dnia roku.
 - `observing_data_final.hash` – hash parametrów (`minalt`, `sunlimit`, lokalizacja, rok) użytych przy generowaniu FINAL, służy do wykrywania potrzeby ponownego przeliczenia.
+- `observing_data_raw.hash` – hash parametrów RAW (lokalizacja + rok), służy do walidacji cache RAW
 - `ENGINE_STATE_PKL` – zapis stanu silnika (poprzednia lokalizacja, rok i parametry), wykorzystywany do logów diagnostycznych.
 
 ### 2.3. Pliki wyjściowe
@@ -124,7 +125,7 @@ Na podstawie współrzędnych moduł automatycznie wylicza i ustala nazwę stref
 
 #### 3.3.1. System punktacji
 
-System punktacji bazuje na kilku tabelach: `SCORING_FILTER`, `SCORING_BORTLE`, `SCORE_FAMOUS` i `SCORE_DATA_QUALITY`, które są zdefiniowane w postaci stałe `/ słowników wewnątrz modułu.  
+System punktacji bazuje na kilku tabelach: `SCORING_FILTER`, `SCORING_BORTLE`, `SCORE_FAMOUS` i `SCORE_DATA_QUALITY`, które są zdefiniowane w postaci stałe słowników wewnątrz modułu.  
 
 - `SCORING_FILTER` przydziela różne punkty dla obiektów w zależności od typu i używanych filtrów. Na przykład mgławice NB/HII uzyskują wyższe punkty w przypadku filtrów narrowband, a galaktyki w przypadku filtrów typu triband (np. L, R, G, B lub „L‑RGB” z moderowanym wpływem L).  
 - `SCORING_BORTLE` uwzględnia ciemność nieba: ciemne mgławice otrzymują wysoki bonus dla Bortle ≤ 5, a punkty są stopniowo zmniejszane do zera dla Bortle > 6–7, co odzwierciedla utratę kontrastu na jasnym niebie.  
@@ -137,12 +138,14 @@ Wzór ma postać typu `mu ≈ mag + 2.5 * log10(π * (size_arcmin/2)**2)`, a wyn
 #### 3.3.2. Wyjście `vis_data.json`
 
 Na wyjściu powstaje słownik `vis_data` z sekcjami:  
+
 - `location` – opis miejsca obserwacji (nazwa, współrzędne, wysokość, strefa czasowa),  
 - `year` – rok planowania (np. 2026),  
 - `parameters` – lista parametrów obserwacyjnych (`minalt`, `sunlimit`, `bortle`, informacje o filtrach, parametry kamery, ewentualnie flagi konfiguracyjne),  
 - `objects` – lista wszystkich obiektów z `katalog_astro_full.csv` po przefiltrowaniu i punktacji.  
 
 Struktura `objects` w `vis_data.json` zawiera dla każdego obiektu:  
+
 - pola katalogowe (np. `id`, `ra`, `dec`, `size`, `mag`, `type`, `extra_info`, `common_names`, `catalog`),  
 - `score` – suma punktów z `SCORING_FILTER`, `SCORING_BORTLE`, `SCORE_FAMOUS`, `SCORE_DATA_QUALITY` oraz ewentualnych modyfikacji z jasności powierzchniowej,  
 - `surface_brightness` – obliczona jasność powierzchniowa,  
@@ -164,23 +167,31 @@ Dataclass `RawObjectData` przechowuje surowe wysokości obiektu (`o_alt_all`) or
 
 #### 3.4.1. Etap RAW
 
-Funkcja `compute_raw_data(json_path, object_limit, max_workers)` wczytuje `vis_data.json`, określa lokalizację, rok i listę obiektów ograniczoną do `object_limit`.
-Dla każdego dnia roku tworzony jest czas południa (`days_noon`), a następnie siatka czasów nocnych przez dodanie wektora przesunięć godzinowych `t_night_offsets_hours`.
-Dla każdego obiektu obliczana jest macierz wysokości `o_alt_all` w układzie `AltAz`, a także czasy crossingów 0° dla Słońca i obiektu przy użyciu funkcji `get_crossings`.
-Jeśli `RAW_DATA_PKL` istnieje, moduł wczytuje istniejące dane i liczy tylko brakujące obiekty, po czym nadpisuje plik z pełnym zbiorem RAW.
+Moduł został zoptymalizowany poprzez wydzielenie obliczeń crossingów Słońca do etapu globalnego, wykonywanego raz przed przetwarzaniem obiektów. Funkcja compute_raw_data teraz najpierw oblicza precomputed_sun_pts – listę czasów wschodu/zachodu Słońca dla wszystkich 365 dni – a następnie przekazuje je do workerów poprzez partial. Dzięki temu crossingi Słońca nie są liczone redundantnie dla każdego obiektu osobno, co znacząco przyspiesza etap RAW.
+
+* Funkcja `precomputed_sun_pts: List[List[datetime]]` – pre-obliczone crossingi Słońca (0°) dla każdego dnia, przekazywane z głównego wątku zamiast obliczania w pętli.
+* Funkcja `compute_raw_data(json_path, object_limit, max_workers)` wczytuje `vis_data.json`, określa lokalizację, rok i listę obiektów ograniczoną do `object_limit`.
+* Dla każdego dnia roku tworzony jest czas południa (`days_noon`), a następnie siatka czasów nocnych przez dodanie wektora przesunięć godzinowych `t_night_offsets_hours`.
+* Dla każdego obiektu obliczana jest macierz wysokości `o_alt_all` w układzie `AltAz`, a także czasy crossingów 0° dla Słońca i obiektu przy użyciu funkcji `get_crossings`.
+* Jeśli `RAW_DATA_PKL` istnieje, moduł wczytuje istniejące dane i liczy tylko brakujące obiekty, po czym nadpisuje plik z pełnym zbiorem RAW.
+
+#### 3.4.1.1
+Wprowadzono osobny mechanizm hashowania dla danych RAW niezależny od parametrów jakości (`minalt`, `sunlimit`). Funkcja `get_raw_params_hash` generuje hash MD5 z lokalizacji (lat, lon) i roku, zapisując go w pliku `observing_data_raw.hash`. Cache RAW jest invalidowany tylko gdy zmienią się parametry geometryczne (lokalizacja lub rok), a nie przy każdej zmianie progów obserwacyjnych. Dzięki temu ponowne przeliczenie FINAL z innym `minalt` lub `sunlimit` nie wymaga przetwarzania RAW od nowa.
 
 #### 3.4.2. Etap FINAL
 
-Funkcja `process_raw_to_final` przekształca dane RAW jednego obiektu w listę rekordów dziennych zawierających m.in. `q_hours`, `m_hours`, `qual_segments` oraz zmodyfikowane `sun_pts` względem progu `sunlimit`.
+* Funkcja `process_raw_to_final` przekształca dane RAW jednego obiektu w listę rekordów dziennych zawierających m.in. `q_hours`, `m_hours`, `qual_segments` oraz zmodyfikowane `sun_pts` względem progu `sunlimit`.
 Maska jakości tworzona jest jako warunek spełnienia minimalnej wysokości obiektu oraz odpowiedniego zanurzenia Słońca pod horyzontem.
-Funkcja `reprocess_to_final` wylicza finalne dane dla wszystkich obiektów, generując wcześniej globalne siatki wysokości Słońca i Księżyca dla całego roku, co minimalizuje liczbę transformacji układu odniesienia.
+* Funkcja `reprocess_to_final` wylicza finalne dane dla wszystkich obiektów, generując wcześniej globalne siatki wysokości Słońca i Księżyca dla całego roku, co minimalizuje liczbę transformacji układu odniesienia.
 Po zakończeniu przetwarzania zapisuje `observing_data.pkl` oraz aktualny hash parametrów do `observing_data_final.hash`.
+
+Obie funkcje zostały zrefaktoryzowane do pracy z `ProcessPoolExecutor`. Funkcja `process_raw_to_final` została wydzielona jako worker function i uruchamiana jest równolegle dla wszystkich obiektów. Wspólne obliczenia wysokości Słońca i Księżyca (`sun_alt_all`, `moon_alt_all`) są wykonywane raz w głównym procesie i przekazywane do workerów poprzez `partial`, co minimalizuje overhead transformacji układu odniesienia.
 
 #### 3.4.3. Logika incrementalna
 
-Funkcja `should_reprocess` porównuje aktualny hash parametrów z zapisanym w `observing_data_final.hash`, decydując czy wymagane jest pełne przeliczenie FINAL.
-`reprocess_missing_final` potrafi dogenerować brakujące obiekty do istniejącego FINAL cache, scalając nowe wyniki z dotychczasowymi i zwracając tylko podzbiór dla wybranych `target_ids`.
-`run_engine_from_vis_json` steruje całością procesu, raportując poprzedni i bieżący stan silnika, pytając użytkownika o limit obiektów oraz wykonując sekwencję RAW/FINAL.
+* Funkcja `should_reprocess` porównuje aktualny hash parametrów z zapisanym w `observing_data_final.hash`, decydując czy wymagane jest pełne przeliczenie FINAL.
+* `reprocess_missing_final` potrafi dogenerować brakujące obiekty do istniejącego FINAL cache, scalając nowe wyniki z dotychczasowymi i zwracając tylko podzbiór dla wybranych `target_ids`.
+* Funkcja `run_engine_from_vis_json` steruje całością procesu, obsługując inteligentne cache'owanie na dwóch poziomach: RAW (zależny od geometrii) i FINAL (zależny od progów jakości). Przed rozpoczęciem obliczeń raportuje poprzedni i bieżący stan silnika (lokalizacja, rok, parametry). Pyta użytkownika o limit obiektów do przeliczenia. Obsługuje flagę --force-all, która usuwa wszystkie cache'e i wymusza pełne przeliczenie.
 
 ---
 
@@ -205,33 +216,45 @@ Wszystkie kolejne obliczenia są wykonywane w przestrzeni obiektów o `score > 0
 
 #### 3.5.1. Metryki widoczności
 
-Funkcja `compute_monthly_best_q_hours(vis_data, observing_data, threshold=None)` tworzy tablicę / DataFrame z kolumnami `id`, `month`, `best_q_hours`.  
-Dla każdego obiektu i miesiąca wyliczana jest maksymalna wartość `q_hours` spośród wszystkich nocy w danym miesiącu, spełniających warunki jakości obserwacji (minimalna wysokość obiektu, odpowiedni typ zmierzchu).  
+* Funkcja `compute_monthly_best_q_hours(vis_data, observing_data, threshold=None)` tworzy tablicę / DataFrame z kolumnami `id`, `month`, `best_q_hours`.  
+Dla każdego obiektu i miesiąca wyliczana jest najlepsza wartość `q_hours` spośród wszystkich nocy w danym miesiącu, spełniających warunki jakości obserwacji (minimalna wysokość obiektu, odpowiedni typ zmierzchu).  
 Pole `best_q_hours` reprezentuje więc „najlepszą możliwą długość okna obserwacyjnego” w miesiącu dla danego obiektu.
 
-Dodatkowo funkcja `compute_yearly_annual_vis(vis_data, observing_data, q_hours_threshold=0.5)` zlicza liczbę nocy w całym roku, w których `q_hours` dla obiektu przekracza zadany próg `q_hours_threshold` (domyślnie 0.5 godziny).  
+* Dodatkowo funkcja `compute_yearly_annual_vis(vis_data, observing_data, q_hours_threshold=0.5)` zlicza liczbę nocy w całym roku, w których `q_hours` dla obiektu przekracza zadany próg `q_hours_threshold` (domyślnie 0.5 godziny).  
 Wynik jest zapisywany w kolumnie `annual_vis` DataFrame, reprezentując „liczbę użytecznych nocy” w roku dla danego obiektu – im większa wartość, tym częściej obiekt jest w dobrych warunkach obserwacyjnych.
 
-Obie metryki (`best_q_hours` oraz `annual_vis`) są używane w kolejnym kroku jako podstawowe dane do określenia jakości potencjalnego przypisania obiektu do miesiąca/wariantu.  
+* Obie metryki (`best_q_hours` oraz `annual_vis`) są używane w kolejnym kroku jako podstawowe dane do określenia jakości potencjalnego przypisania obiektu do miesiąca/wariantu.  
+
 Warto zaznaczyć, że `annual_vis` może być używana jako dodatkowy filtr – obiekty o bardzo niskiej liczbie użytecznych nocy mogą być zredukowane w liczbie lub w ogóle wykluczone z planu rocznego.
 
 #### 3.5.2. Algorytm przydziału (Hungarian)
 
-Funkcja `build_monthly_variants(vis_data, observing_data, monthly_capacities, variants, ...)` formułuje problem przydziału jako globalny problem przypisania obiektów do slotów w formacie `(wariant, miesiąc, pozycja)`.
+Funkcja `build_monthly_variants` wykorzystuje logikę hybrydową dwupoziomową opartą na _Hungarian Algorithm_ do optymalnego przydziału obiektów:
+
+**Podział na dwie grupy**:
+
+1. ELITA (Score > Mediana): obiekty o najwyższych punktach, priorytetyzowane przez Score^3 × Quality_Ratio. Dostają offset 1 000 000 000, co gwarantuje, że zawsze są wybierane jako pierwsze.
+1. RESZTA (Score ≤ Mediana): obiekty o niższym score, priorytetyzowane przez prestiż katalogu (NGC/IC > Sh2 > RCW > LBN > Cederblad > PGC > Barnard > LDN). Score jest ignorowany. Waga katalogowa × 1000 + jakość widoczności × 100.
+
+* Funkcja pomocnicza `get_catalog_weight` zwraca wagę numeryczną (10-90) na podstawie przynależności do katalogu, skanując zarówno `id` jak i `common_names` obiektu.
+
+**Stałe warianty**: Liczba wariantów jest teraz sztywno ustalona na 3 (A, B, C), parametr block_size został usunięty z logiki (zachowany tylko dla kompatybilności interfejsu).
 
 Na etapie wstępnej konfiguracji użytkownik lub konfiguracja (np. z pliku lub stałych w kodzie) definiuje:
-- `monthly_capacities` – słownik `month -> int`, mówiący o maksymalnej liczbie obiektów przypisanych w danym miesiącu (np. 10 obiektów na miesiąc),
-- `variants` – lista nazw wariantów (np. `["A", "B", "C"]`), co razem definiuje łączną liczbę slotów dla miesiąca: `total_monthly_slots = len(variants) * monthly_capacity`.
+`monthly_capacities` – słownik `month -> int`, mówiący o maksymalnej liczbie obiektów przypisanych w danym miesiącu (np. 9 obiektów na miesiąc),
+`variants` – lista nazw wariantów (np. `["A", "B", "C"]`), co razem definiuje łączną liczbę slotów dla miesiąca: `total_monthly_slots = len(variants) * monthly_capacity`.
 
 Całkowita liczba slotów w roku to `n_slots = sum(monthly_capacities.values()) * len(variants)`.
 
 Funkcja:
+
 - buduje listę wszystkich „slotów” w roku, reprezentowanych jako trójki `(id_variant, month, slot_index)`,
 - tworzy macierz kosztów o wymiarach `n_objects × n_slots`,
 
 Macierz inicjalizowana jest dużą wartością `INVALID_COST` dla wszystkich par `(obiekt, slot)`, zgodnie z konwencją `scipy.optimize.linear_sum_assignment` – węzły niedozwolone mają bardzo wysoki koszt, aby nie być wybierane.
 
 Dla każdej pary `(obiekt, slot)`:
+
 - jeśli obiekt w danym `month` ma `best_q_hours > min_avg_q_hours` (domyślnie jakiś graniczny próg, np. 1.0 godzina), to slot jest uznawany za „dopuszczalny”,
 - wtedy:
   - obliczany jest `quality_ratio = best_q_hours / max_possible_hours` dla tego miesiąca (maksymalna możliwa jakość jako 100%),
@@ -239,6 +262,7 @@ Dla każdej pary `(obiekt, slot)`:
   - koszt przypisania jest ustawiany na `-weighted_score`, tak aby minimalizacja sumy kosztów odpowiadała maksymalizacji sumy `weighted_score`.
 
 W praktyce:
+
 - obiekty z wysokim `score` są bardzo mocno nagradzane (wzrost trzecią potęgą),
 - obiekty z dobrą jakością widoczności w danym miesiącu (duży `quality_ratio`) otrzymują wyższe `weighted_score`,
 - niezalecani obiekty (niższe `score`, niskie `best_q_hours` lub poniżej `min_avg_q_hours`) albo nie są w ogóle przypisane, albo trafiają dopiero „na ostatnią ławkę” przy wypełnianiu planu.
@@ -256,12 +280,14 @@ co jest realizowane przez dodatkowe warstwy filtrowania i korygujące iteracje p
 Po wyznaczeniu optymalnego przydziału moduł generuje zestaw statystyk opisujących uzyskany plan roczny.
 
 Statystyki obejmują m.in.:
+
 - medianę `score` z przypisanych obiektów – wskazuje na ogólne poziome „wartości obserwacyjnej” planu,
 - udział obiektów z górnej połowy rankingów `score` (np. top 50% obiektów z bazy) – pokazuje, jak bardzo plan koncentruje się na obiektach wysokiego priorytetu,
 - udział obiektów spoza topu `score` – wskazuje, czy w planie zostają włączone „mniej ważne” cele, które jednak w danym roku mają wyjątkowo dobre warunki widoczności,
 - średnią jakość okna obserwacyjnego (średnie `q_hours` z przypisanych slotów) – pokazuje, jak „wygodne” są warunki obserwacyjne dla danego planu.
 
 Funkcja `save_selected_to_vis_data(vis_data, monthly_assignments, year)`:
+
 - przejmuje strukturę `vis_data` z wcześniejszego wczytania,
 - dla wszystkich obiektów zeruje lub czyszcza pola `selected` (ustawiając `null` albo usuwając),
 - dla każdego obiektu przypisanego w którymś z wariantów i miesięcy:
@@ -269,8 +295,10 @@ Funkcja `save_selected_to_vis_data(vis_data, monthly_assignments, year)`:
   - zapisuje ją pod kluczem `selected` w danym obiekcie w `vis_data["objects"]`.
 Na koniec funckja wywołuje `append_famous_labels_to_ids(vis_data)`, która dodaje do nazwy obiektu w formacie `"(M, C, H)"` informację o przynależności do Messier, Caldwell i Herschel (jeśli obiekt jest w jednym lub większej liczbie z tych katalogów), co jest później wykorzystywane w nagłówkach stron atlasu.
 
-Moduł generuje również raport w formie `monthly_overview.pdf`.  
+Moduł generuje również raport w formie `monthly_overview.pdf`.
+
 Dla każdego miesiąca i każdego wariantu (A/B/C) w PDF robi się wykres:
+
 - oś X – godziny nocy (lokalne),
 - oś Y – wysokość obiektu, Słońca i Księżyca w stopniach,
 - zaznaczone okna jakości obserwacji (z tłem kodującym fazę zmierzchu: civil, nautical, astronomical),
@@ -280,6 +308,20 @@ Wszystkie wykresy są ułożone na stronach A4 w formacie siatki (np. po 2–3 m
 
 W efekcie `4_plan_roczny.py` dostarcza zarówno strukturalny plan roczny (coded w `vis_data.json`), jak i wygodny, wizualny przegląd PDF, który jest później wykorzystywany w krokach `5_fov_and_maps.py` i `6_drukuj_strony_obiektow.py` do generowania stron atlasu.
 
+* Funkcja `save_selected_to_vis_data` wywołuje `append_famous_labels_to_ids`, która dla wybranych obiektów dopisuje etykiety M/C/H do pola `name` (ale nie `id`), np. 'NGC 7000 (M33, C20)'
+
+Raport końcowy zawiera:
+
+1. Medianę Score i podział Elita vs Reszta
+1. Listę odrzuconych obiektów z Top (score > mediana) z przyczynami
+1. Listę obiektów użytych z puli poniżej mediany, posortowanych wg prestiżu katalogu
+1. Średnią jakość okna obserwacyjnego (% względem najlepszej możliwej nocy)
+1. Ocenę planu (WYBITNA / BARDZO DOBRA / DOBRA / KOMPROMISOWA)
+1. Miesięczne obciążenie kalendarza ze statusem (ELITA / DOBRE / WYPEŁNIACZE)
+1. Listę kompromisów – obiektów Top przypisanych do gorszych miesięcy"
+
+### 3.5.4
+Moduł generuje dodatkową stronę ze spisem wybranych obiektów na początku PDF. Funkcja `generate_summary_page` tworzy układ dwukolumnowy z tabelami zawierającymi nazwę obiektu, miesiąc przypisania i wariant. Obiekty są sortowane alfabetycznie. Wykorzystuje `matplotlib.table` z customowym formatowaniem.
 
 ---
 
@@ -445,7 +487,7 @@ Na koniec tymczasowy plik tytułowy jest usuwany, a w logu wypisywana jest infor
 1. `python 0_opracuj_katalog_ngc.py` – jednorazowo, po pobraniu OpenNGC.
 2. `python 1_generuj_katalog_astro.py` – pobranie katalogów z VizieR i Smart Merge.
 3. `python 2_ograniczenie_katalogu.py` – interaktywna konfiguracja, scoring i zapis `vis_data.json`.
-4. `python 3_wyliczenia.py` – budowa cache RAW/FINAL widoczności.
+4. `python 3_wyliczenia.py [--force-all]` – budowa cache RAW/FINAL widoczności z opcjonalnym wymuszeniem pełnego przeliczenia.
 5. `python 4_plan_roczny.py` – optymalny plan roczny i aktualizacja `vis_data.json` o `selected`.
 6. `python 5_fov_and_maps.py` – generacja FOV i map kontekstowych dla wybranych obiektów.
 7. `python 6_drukuj_strony_obiektow.py` – wydruk stron atlasu dla wariantów.
@@ -457,5 +499,4 @@ Na koniec tymczasowy plik tytułowy jest usuwany, a w logu wypisywana jest infor
 
 - Wydzielenie konfiguracji do wspólnego pliku `config.yaml` lub `config.toml` i rezygnacja z części interaktywnych zapytań `input()` na rzecz odczytu konfiguracji.
 - Dodanie testów jednostkowych dla kluczowych funkcji takich jak `smart_merge`, `analyze_famous_status`, `mask_to_segments` oraz budowa macierzy kosztów w `build_monthly_variants`.
-- Definicja schematu JSON dla `vis_data.json` (np. przy użyciu pydantic) oraz walidacji pliku przed uruchomieniem kolejnych etapów pipeline’u.
 - Uspójnienie logowania i wprowadzenie poziomów logów (INFO/WARN/ERROR) zamiast wyłącznie `print`, co ułatwi analizę pracy systemu.
