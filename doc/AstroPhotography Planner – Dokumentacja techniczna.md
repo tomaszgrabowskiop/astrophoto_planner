@@ -45,15 +45,12 @@ Pipeline składa się z następujących kroków, realizowanych kolejno przez oso
 
 ### 2.3. Pliki wyjściowe
 
-- `monthly_overview.pdf` – PDF z miesięcznym przeglądem widoczności podczas nocy nowiu, z wykresami dla wariantów A/B/C.
 - `starplots/{id}.png` – kadry FOV dla wybranych obiektów na podstawie konfiguracji kamery.
 - `starplots/context_{id}.png` – szerokie mapy kontekstowe dla tych samych obiektów.
-- `Astrophotography_Planner_2026_1.pdf`, `Astrophotography_Planner_2026_2.pdf` – części atlasu z indywidualnymi stronami obiektów.
-- `Astrophotography_Planner_2026.pdf` – finalny atlas po dodaniu strony tytułowej i scaleniu wszystkich części.
+- `Astrophotography_Planner_ROK_1.pdf` (PDF z miesięcznym przeglądem widoczności podczas nocy nowiu, z wykresami dla wariantów A/B/C.), `Astrophotography_Planner_ROK_2.pdf` (PDF z przegladem obiektów) – części atlasu z indywidualnymi stronami obiektów.
+- `Astrophotography_Planner_ROK_MIASTO.pdf` – finalny atlas po dodaniu strony tytułowej i scaleniu wszystkich części.
 
 ---
-
-## 3. Opis modułów
 
 ## 3. Opis modułów
 
@@ -61,10 +58,10 @@ Pipeline składa się z następujących kroków, realizowanych kolejno przez oso
 
 **Cel:** preprocessing katalogu OpenNGC do formatu wewnętrznego `updated_ngc.csv`.
 
-Moduł wczytuje plik `OpenNGC/NGC.csv` i iteruje po wierszach, budując listę rekordów z wybranymi polami.  
-Dla każdego obiektu wyprowadza identyfikator `id` (NGC/IC), typ obiektu (`type`), współrzędne `ra`/`dec` w stopniach, jasność `mag`, rozmiar kątowy `size` w arcmin, dodatkowe identyfikatory w polu `extra_info` oraz nazwy zwyczajowe w polu `common_names`.  
-Pole `extra_info` uzupełniane jest na podstawie predefiniowanych zbiorów Messier, Caldwell i Herschel, co umożliwia późniejsze bonusy w systemie punktacji.  
-Na końcu moduł zapisuje dane do `updated_ngc.csv` z nagłówkiem i raportuje liczbę przetworzonych oraz pominiętych wierszy.
+* Moduł wczytuje plik `OpenNGC/NGC.csv` i iteruje po wierszach, budując listę rekordów z wybranymi polami.  
+* Dla każdego obiektu wyprowadza identyfikator `id` (NGC/IC), typ obiektu (`type`), współrzędne `ra`/`dec` w stopniach, jasność `mag`, rozmiar kątowy `size` w arcmin, dodatkowe identyfikatory w polu `extra_info` oraz nazwy zwyczajowe w polu `common_names`.  
+* Pole `extra_info` uzupełniane jest na podstawie predefiniowanych zbiorów Messier, Caldwell i Herschel, co umożliwia późniejsze bonusy w systemie punktacji.  
+* Na końcu moduł zapisuje dane do `updated_ngc.csv` z nagłówkiem i raportuje liczbę przetworzonych oraz pominiętych wierszy.
 
 ---
 
@@ -74,7 +71,7 @@ Na końcu moduł zapisuje dane do `updated_ngc.csv` z nagłówkiem i raportuje l
 
 #### 3.2.1. Pobieranie danych
 
-Funkcja `fetch_data()` wczytuje lokalny `updated_ngc.csv` oraz pobiera z VizieR katalogi Sharpless, Barnard, RCW, PGC, LDN, LBN i Cederblad przy użyciu `Vizier`.  
+Funkcja `fetch_data()` wczytuje lokalny `updated_ngc.csv` oraz pobiera katalogi Sharpless, Barnard, RCW, PGC, LDN, LBN i Cederblad przy użyciu `Vizier`.  
 Dla każdego katalogu wyliczana i wypisywana jest liczba wierszy oraz suma wszystkich rekordów.  
 Rezultat zapisywany jest do `katalog_astro_full.csv` po zakończeniu normalizacji i Smart Merge.
 
@@ -109,7 +106,7 @@ Wynikowe rekordy zapisywane są do `katalog_astro_full.csv`.
 **Cel:** interaktywna konfiguracja lokalizacji, parametrów obserwacyjnych i sprzętu oraz selekcja i punktacja obiektów do pliku `vis_data.json`.
 
 Moduł definiuje klasę `Config` z domyślnymi ścieżkami plików oraz parametrami kamery (ogniskowa, rozmiar matrycy, pitch, rozdzielczość), które mogą być nadpisane danymi od użytkownika.  
-Parametry domyślne obejmują m.in. nazwę katalogu roboczego, ścieżkę do `katalog_astro_full.csv` oraz wartości startowe dla kamery (np. ogniskowa 300 mm, typowa matryca z danymi pitch i rozdzielczości).  
+Parametry domyślne obejmują m.in. nazwę katalogu roboczego, ścieżkę do `katalog_astro_full.csv` oraz wartości startowe dla kamery (np. ogniskowa 300 mm, typowa matryca ASPC z danymi pitch i rozdzielczości).  
 
 Użytkownik w trybie konsolowym podaje:  
 - nazwę lokalizacji,  
@@ -125,7 +122,7 @@ Na podstawie współrzędnych moduł automatycznie wylicza i ustala nazwę stref
 
 #### 3.3.1. System punktacji
 
-System punktacji bazuje na kilku tabelach: `SCORING_FILTER`, `SCORING_BORTLE`, `SCORE_FAMOUS` i `SCORE_DATA_QUALITY`, które są zdefiniowane w postaci stałe słowników wewnątrz modułu.  
+System punktacji bazuje na kilku tabelach: `SCORING_FILTER`, `SCORING_BORTLE`, `SCORE_FAMOUS` i `SCORE_DATA_QUALITY`, które są zdefiniowane w postaci słowników wewnątrz modułu.  
 
 - `SCORING_FILTER` przydziela różne punkty dla obiektów w zależności od typu i używanych filtrów. Na przykład mgławice NB/HII uzyskują wyższe punkty w przypadku filtrów narrowband, a galaktyki w przypadku filtrów typu triband (np. L, R, G, B lub „L‑RGB” z moderowanym wpływem L).  
 - `SCORING_BORTLE` uwzględnia ciemność nieba: ciemne mgławice otrzymują wysoki bonus dla Bortle ≤ 5, a punkty są stopniowo zmniejszane do zera dla Bortle > 6–7, co odzwierciedla utratę kontrastu na jasnym niebie.  
@@ -167,16 +164,16 @@ Dataclass `RawObjectData` przechowuje surowe wysokości obiektu (`o_alt_all`) or
 
 #### 3.4.1. Etap RAW
 
-Moduł został zoptymalizowany poprzez wydzielenie obliczeń crossingów Słońca do etapu globalnego, wykonywanego raz przed przetwarzaniem obiektów. Funkcja compute_raw_data teraz najpierw oblicza precomputed_sun_pts – listę czasów wschodu/zachodu Słońca dla wszystkich 365 dni – a następnie przekazuje je do workerów poprzez partial. Dzięki temu crossingi Słońca nie są liczone redundantnie dla każdego obiektu osobno, co znacząco przyspiesza etap RAW.
+Moduł został zoptymalizowany poprzez wydzielenie obliczeń crossingów Słońca do etapu globalnego, wykonywanego raz przed przetwarzaniem obiektów. Funkcja `compute_raw_data` najpierw oblicza `precomputed_sun_pts` – listę czasów wschodu/zachodu Słońca dla wszystkich 365 dni – a następnie przekazuje je do workerów poprzez partial. Dzięki temu crossingi Słońca nie są liczone redundantnie dla każdego obiektu osobno.
 
-* Funkcja `precomputed_sun_pts: List[List[datetime]]` – pre-obliczone crossingi Słońca (0°) dla każdego dnia, przekazywane z głównego wątku zamiast obliczania w pętli.
+* Funkcja `precomputed_sun_pts: List[List[datetime]]` – pre-obliczone crossingi Słońca (0°) dla każdego dnia, przekazywane z głównego wątku.
 * Funkcja `compute_raw_data(json_path, object_limit, max_workers)` wczytuje `vis_data.json`, określa lokalizację, rok i listę obiektów ograniczoną do `object_limit`.
 * Dla każdego dnia roku tworzony jest czas południa (`days_noon`), a następnie siatka czasów nocnych przez dodanie wektora przesunięć godzinowych `t_night_offsets_hours`.
 * Dla każdego obiektu obliczana jest macierz wysokości `o_alt_all` w układzie `AltAz`, a także czasy crossingów 0° dla Słońca i obiektu przy użyciu funkcji `get_crossings`.
 * Jeśli `RAW_DATA_PKL` istnieje, moduł wczytuje istniejące dane i liczy tylko brakujące obiekty, po czym nadpisuje plik z pełnym zbiorem RAW.
 
 #### 3.4.1.1
-Wprowadzono osobny mechanizm hashowania dla danych RAW niezależny od parametrów jakości (`minalt`, `sunlimit`). Funkcja `get_raw_params_hash` generuje hash MD5 z lokalizacji (lat, lon) i roku, zapisując go w pliku `observing_data_raw.hash`. Cache RAW jest invalidowany tylko gdy zmienią się parametry geometryczne (lokalizacja lub rok), a nie przy każdej zmianie progów obserwacyjnych. Dzięki temu ponowne przeliczenie FINAL z innym `minalt` lub `sunlimit` nie wymaga przetwarzania RAW od nowa.
+Osobny mechanizm hashowania dla danych RAW niezależny od parametrów jakości (`minalt`, `sunlimit`). Funkcja `get_raw_params_hash` generuje hash MD5 z lokalizacji (lat, lon) i roku, zapisując go w pliku `observing_data_raw.hash`. Cache RAW jest invalidowany tylko gdy zmienią się kluczowe parametry (lokalizacja lub rok), a nie przy każdej zmianie progów obserwacyjnych. Dzięki temu ponowne przeliczenie FINAL z innym `minalt` lub `sunlimit` nie wymaga przetwarzania RAW od nowa.
 
 #### 3.4.2. Etap FINAL
 
@@ -185,42 +182,44 @@ Maska jakości tworzona jest jako warunek spełnienia minimalnej wysokości obie
 * Funkcja `reprocess_to_final` wylicza finalne dane dla wszystkich obiektów, generując wcześniej globalne siatki wysokości Słońca i Księżyca dla całego roku, co minimalizuje liczbę transformacji układu odniesienia.
 Po zakończeniu przetwarzania zapisuje `observing_data.pkl` oraz aktualny hash parametrów do `observing_data_final.hash`.
 
-Obie funkcje zostały zrefaktoryzowane do pracy z `ProcessPoolExecutor`. Funkcja `process_raw_to_final` została wydzielona jako worker function i uruchamiana jest równolegle dla wszystkich obiektów. Wspólne obliczenia wysokości Słońca i Księżyca (`sun_alt_all`, `moon_alt_all`) są wykonywane raz w głównym procesie i przekazywane do workerów poprzez `partial`, co minimalizuje overhead transformacji układu odniesienia.
+Obie funkcje zostały zrefaktoryzowane do pracy z `ProcessPoolExecutor`. Funkcja `process_raw_to_final` została wydzielona jako _worker function_ i uruchamiana jest równolegle dla wszystkich obiektów. 
+
+Wspólne obliczenia wysokości Słońca i Księżyca (`sun_alt_all`, `moon_alt_all`) są wykonywane raz w głównym procesie i przekazywane do workerów poprzez `partial`, co minimalizuje overhead transformacji układu odniesienia.
 
 #### 3.4.3. Logika incrementalna
 
 * Funkcja `should_reprocess` porównuje aktualny hash parametrów z zapisanym w `observing_data_final.hash`, decydując czy wymagane jest pełne przeliczenie FINAL.
 * `reprocess_missing_final` potrafi dogenerować brakujące obiekty do istniejącego FINAL cache, scalając nowe wyniki z dotychczasowymi i zwracając tylko podzbiór dla wybranych `target_ids`.
-* Funkcja `run_engine_from_vis_json` steruje całością procesu, obsługując inteligentne cache'owanie na dwóch poziomach: RAW (zależny od geometrii) i FINAL (zależny od progów jakości). Przed rozpoczęciem obliczeń raportuje poprzedni i bieżący stan silnika (lokalizacja, rok, parametry). Pyta użytkownika o limit obiektów do przeliczenia. Obsługuje flagę --force-all, która usuwa wszystkie cache'e i wymusza pełne przeliczenie.
+* Funkcja `run_engine_from_vis_json` steruje całością procesu, obsługując inteligentne cache'owanie na dwóch poziomach: RAW (zależny od geometrii) i FINAL (zależny od progów jakości). Przed rozpoczęciem obliczeń raportuje poprzedni i bieżący stan silnika (lokalizacja, rok, parametry). Pyta użytkownika o limit obiektów do przeliczenia. Obsługuje flagę `--force-all`, która usuwa wszystkie cache'e i wymusza pełne przeliczenie.
 
 ---
 
 ### 3.5. `4_plan_roczny.py`
 
-**Cel:** obliczenie miesięcznych parametrów widoczności, optymalny przydział obiektów do miesięcy i wariantów oraz zapis wyboru w `vis_data.json` i zgenerowanie PDF przeglądowego (`monthly_overview.pdf`).
+**Cel:** obliczenie miesięcznych parametrów widoczności, optymalny przydział obiektów do miesięcy i wariantów oraz zapis wyboru w `vis_data.json` i wygenerowanie PDF z miesięcznym rozkładem obiektów (`AstroPhotographyPlanner_ROK_1.pdf`).
 
 Moduł `4_plan_roczny.py` jest odpowiedzialny za przejście od surowych danych widoczności (`observing_data.pkl`) do konkretnego rocznego planu, wyrażonego jako przydział obiektów do miesięcy i wariantów (A/B/C).  
-Na wyjściu moduł aktualizuje plik `vis_data.json`, dodając w każdym obiekcie pole `selected` z informacją o wariant, miesiącu i dacie przypisania, oraz generuje wykresy widoczności w formacie `monthly_overview.pdf`.
+Na wyjściu moduł aktualizuje plik `vis_data.json`, dodając w każdym obiekcie pole `selected` z informacją o wariancie, miesiącu i dacie przypisania, oraz generuje 36 wykresów widoczności (3 na dany miesiąc).
 
 Dataclass `MonthlyAssignment` opisuje pojedynczy wariant (np. wariant A, B, C) w postaci struktury składającej się z:
 - `name` – nazwa wariantu (np. `"A"`, `"B"`, `"C"`),
 - `month_to_ids` – słownik, w którym kluczem jest numer miesiąca (1–12), a wartością lista `id` obiektów przypisanych do tego wariantu i miesiąca.  
 
-Struktura ta jest uogólnieniem zadanego problemu optymalizacji: system określa, które obiekty i w jakich miesiącach mają być przydzielone do którego wariantu, z uwzględnieniem ograniczeń pojemnościowych.
+Struktura ta jest uogólnieniem problemu optymalizacji: system określa, które obiekty i w jakich miesiącach mają być przydzielone do którego wariantu, z uwzględnieniem ograniczeń pojemnościowych.
 
 Funkcje pomocnicze `load_vis_data` i `load_observing_data` wczytują odpowiednio:
 - `vis_data.json` – zawierający obiekty, ich `score`, parametry lokalizacji, rok planowania oraz bieżące obliczenia z `2_ograniczenie_katalogu.py`,
 - `observing_data.pkl` – z pre‑obliczonymi danymi widoczności dla każdego obiektu (pola `q_hours`, `m_hours`, `qual_segments`, `sun_pts` itp. dla każdego dnia roku).  
 
-Wszystkie kolejne obliczenia są wykonywane w przestrzeni obiektów o `score > 0`, filtrując te zbyt słabie punktowane lub z niską wizualną wartością w danym setupie obserwacyjnym.
+Wszystkie kolejne obliczenia są wykonywane w przestrzeni obiektów o `score > 0`, filtrując te zbyt słabo punktowane lub z niską wizualną wartością w danym setupie obserwacyjnym.
 
 #### 3.5.1. Metryki widoczności
 
 * Funkcja `compute_monthly_best_q_hours(vis_data, observing_data, threshold=None)` tworzy tablicę / DataFrame z kolumnami `id`, `month`, `best_q_hours`.  
-Dla każdego obiektu i miesiąca wyliczana jest najlepsza wartość `q_hours` spośród wszystkich nocy w danym miesiącu, spełniających warunki jakości obserwacji (minimalna wysokość obiektu, odpowiedni typ zmierzchu).  
+Dla każdego obiektu i miesiąca wyliczana jest najlepsza wartość `q_hours` spośród wszystkich nocy w danym miesiącu, spełniających warunki jakości obserwacji (minimalna wysokość obiektu, głębokość zmierzchu).  
 Pole `best_q_hours` reprezentuje więc „najlepszą możliwą długość okna obserwacyjnego” w miesiącu dla danego obiektu.
 
-* Dodatkowo funkcja `compute_yearly_annual_vis(vis_data, observing_data, q_hours_threshold=0.5)` zlicza liczbę nocy w całym roku, w których `q_hours` dla obiektu przekracza zadany próg `q_hours_threshold` (domyślnie 0.5 godziny).  
+* Dodatkowo funkcja `compute_yearly_annual_vis(vis_data, observing_data, q_hours_threshold=0.5)` zlicza liczbę nocy w całym roku, w których `q_hours` dla obiektu przekracza zadany próg `q_hours_threshold`.  
 Wynik jest zapisywany w kolumnie `annual_vis` DataFrame, reprezentując „liczbę użytecznych nocy” w roku dla danego obiektu – im większa wartość, tym częściej obiekt jest w dobrych warunkach obserwacyjnych.
 
 * Obie metryki (`best_q_hours` oraz `annual_vis`) są używane w kolejnym kroku jako podstawowe dane do określenia jakości potencjalnego przypisania obiektu do miesiąca/wariantu.  
@@ -233,12 +232,12 @@ Funkcja `build_monthly_variants` wykorzystuje logikę hybrydową dwupoziomową o
 
 **Podział na dwie grupy**:
 
-1. ELITA (Score > Mediana): obiekty o najwyższych punktach, priorytetyzowane przez Score^3 × Quality_Ratio. Dostają offset 1 000 000 000, co gwarantuje, że zawsze są wybierane jako pierwsze.
-1. RESZTA (Score ≤ Mediana): obiekty o niższym score, priorytetyzowane przez prestiż katalogu (NGC/IC > Sh2 > RCW > LBN > Cederblad > PGC > Barnard > LDN). Score jest ignorowany. Waga katalogowa × 1000 + jakość widoczności × 100.
+1. **ELITA** (Score > Mediana): obiekty o najwyższych punktach, priorytetyzowane przez Score^3 × Quality_Ratio. Dostają offset 1 000 000 000, co gwarantuje, że zawsze są wybierane jako pierwsze.
+1. **RESZTA** (Score ≤ Mediana): obiekty o niższym score, priorytetyzowane przez prestiż katalogu (NGC/IC > Sh2 > RCW > LBN > Cederblad > PGC > Barnard > LDN). Score jest ignorowany. Waga katalogowa × 1000 + jakość widoczności × 100.
 
 * Funkcja pomocnicza `get_catalog_weight` zwraca wagę numeryczną (10-90) na podstawie przynależności do katalogu, skanując zarówno `id` jak i `common_names` obiektu.
 
-**Stałe warianty**: Liczba wariantów jest teraz sztywno ustalona na 3 (A, B, C), parametr block_size został usunięty z logiki (zachowany tylko dla kompatybilności interfejsu).
+**Stałe warianty**: Liczba wariantów jest sztywno ustalona na 3 (A, B, C), parametr `block_size` został usunięty z logiki (zachowany tylko dla kompatybilności interfejsu).
 
 Na etapie wstępnej konfiguracji użytkownik lub konfiguracja (np. z pliku lub stałych w kodzie) definiuje:
 `monthly_capacities` – słownik `month -> int`, mówiący o maksymalnej liczbie obiektów przypisanych w danym miesiącu (np. 9 obiektów na miesiąc),
@@ -255,7 +254,7 @@ Macierz inicjalizowana jest dużą wartością `INVALID_COST` dla wszystkich par
 
 Dla każdej pary `(obiekt, slot)`:
 
-- jeśli obiekt w danym `month` ma `best_q_hours > min_avg_q_hours` (domyślnie jakiś graniczny próg, np. 1.0 godzina), to slot jest uznawany za „dopuszczalny”,
+- jeśli obiekt w danym `month` ma `best_q_hours > min_avg_q_hours`, to slot jest uznawany za „dopuszczalny”,
 - wtedy:
   - obliczany jest `quality_ratio = best_q_hours / max_possible_hours` dla tego miesiąca (maksymalna możliwa jakość jako 100%),
   - obliczana jest waga `weighted_score = score^3 * quality_ratio`,
@@ -263,17 +262,12 @@ Dla każdej pary `(obiekt, slot)`:
 
 W praktyce:
 
-- obiekty z wysokim `score` są bardzo mocno nagradzane (wzrost trzecią potęgą),
+- obiekty z wysokim `score` są bardzo mocno nagradzane (skalowanie trzecią potęgą),
 - obiekty z dobrą jakością widoczności w danym miesiącu (duży `quality_ratio`) otrzymują wyższe `weighted_score`,
-- niezalecani obiekty (niższe `score`, niskie `best_q_hours` lub poniżej `min_avg_q_hours`) albo nie są w ogóle przypisane, albo trafiają dopiero „na ostatnią ławkę” przy wypełnianiu planu.
+- niezalecane obiekty (niższe `score`, niskie `best_q_hours` lub poniżej `min_avg_q_hours`) albo nie są w ogóle przypisane, albo trafiają dopiero „na ostatnią ławkę” przy wypełnianiu planu.
 
 Funkcja `linear_sum_assignment` z modułu `scipy.optimize` zwraca optymalne przypisanie minimalizujące sumę kosztów, co równe jest maksymalizacji globalnej sumy `weighted_score` przy zachowaniu ograniczeń pojemnościowych na sloty miesięczne.  
-Wynik jest przetworzony do listy `MonthlyAssignment` po jednym dla każdego wariantu, zawierającej `id` obiektów przypisanych do konkretnych miesięcy.
-
-Dodatkowo, moduł pozwala na konfigurację ograniczeń typu:
-- minimalna liczba obiektów w roku na dany typ (np. minimalna liczba mgławic, galaktyk, gromad),
-- maksymalna liczba obiektów tego samego typu w danym miesiącu,
-co jest realizowane przez dodatkowe warstwy filtrowania i korygujące iteracje po wyliczeniu pierwotnego rozwiązania.
+Wynik jest przetworzony do listy `MonthlyAssignment` dla każdego wariantu, zawierającej `id` obiektów przypisanych do konkretnych miesięcy.
 
 #### 3.5.3. Raport i zapis wyników
 
@@ -281,47 +275,44 @@ Po wyznaczeniu optymalnego przydziału moduł generuje zestaw statystyk opisują
 
 Statystyki obejmują m.in.:
 
-- medianę `score` z przypisanych obiektów – wskazuje na ogólne poziome „wartości obserwacyjnej” planu,
-- udział obiektów z górnej połowy rankingów `score` (np. top 50% obiektów z bazy) – pokazuje, jak bardzo plan koncentruje się na obiektach wysokiego priorytetu,
-- udział obiektów spoza topu `score` – wskazuje, czy w planie zostają włączone „mniej ważne” cele, które jednak w danym roku mają wyjątkowo dobre warunki widoczności,
-- średnią jakość okna obserwacyjnego (średnie `q_hours` z przypisanych slotów) – pokazuje, jak „wygodne” są warunki obserwacyjne dla danego planu.
+- medianę `score` z przypisanych obiektów – wskazuje na ogólne poziom „wartości obserwacyjnej” planu,
+- udział obiektów z górnej połowy rankingów `score` – pokazuje, jak bardzo plan koncentruje się na obiektach wysokiego priorytetu,
+- udział obiektów spoza topu `score` – wskazuje, czy w planie zostają włączone „mniej ważne” cele, które spełniają warunki widoczności,
+- średnią jakość okna obserwacyjnego (średnie `q_hours` z przypisanych slotów) – pokazuje, jak „odpowiednie” są warunki obserwacyjne dla danego planu.
 
 Funkcja `save_selected_to_vis_data(vis_data, monthly_assignments, year)`:
 
 - przejmuje strukturę `vis_data` z wcześniejszego wczytania,
 - dla wszystkich obiektów zeruje lub czyszcza pola `selected` (ustawiając `null` albo usuwając),
 - dla każdego obiektu przypisanego w którymś z wariantów i miesięcy:
-  - tworzy strukturę `{"variant": "A", "month": 3, "assignment_date": "2026-03-01"}` (data jest przykładowa, zwykle wskazuje pierwszą noc w danym miesiącu),
+  - tworzy strukturę `{"variant": "A", "month": 3, "assignment_date": "2026-03-01"}`,
   - zapisuje ją pod kluczem `selected` w danym obiekcie w `vis_data["objects"]`.
-Na koniec funckja wywołuje `append_famous_labels_to_ids(vis_data)`, która dodaje do nazwy obiektu w formacie `"(M, C, H)"` informację o przynależności do Messier, Caldwell i Herschel (jeśli obiekt jest w jednym lub większej liczbie z tych katalogów), co jest później wykorzystywane w nagłówkach stron atlasu.
-
-Moduł generuje również raport w formie `monthly_overview.pdf`.
+Na koniec funckja wywołuje `append_famous_labels_to_ids(vis_data)`, która dodaje do nazwy obiektu w formacie `"(M, C, H)"` informację o przynależności do Messier, Caldwell i Herschel (jeśli obiekt jest w jednym lub większej liczbie z tych katalogów), co jest później wykorzystywane w liście, a może być użyte w nagłówkach stron atlasu (np. NGC7000 (M33, C20)).
 
 Dla każdego miesiąca i każdego wariantu (A/B/C) w PDF robi się wykres:
 
 - oś X – godziny nocy (lokalne),
 - oś Y – wysokość obiektu, Słońca i Księżyca w stopniach,
-- zaznaczone okna jakości obserwacji (z tłem kodującym fazę zmierzchu: civil, nautical, astronomical),
-- na wykresie zaznaczone są punkty centralne nocy nowiu, w których obiekt osiąga `best_q_hours` w danym miesiącu.  
+- zaznaczone okna jakości obserwacji (z tłem kodującym fazę zmierzchu: _civil, nautical, astronomical_),
 
-Wszystkie wykresy są ułożone na stronach A4 w formacie siatki (np. po 2–3 miesiące na stronie), a na końcu PDF znajduje się podsumowanie liczby obiektów per wariant oraz podstawowe statystyki planu rocznego (mediana, udział top, średnia jakość itp.).
+Wykresy generują się dla nocy nowiu w danym miesiącu. Stąd część obiektów wydaje się być krócej na niebie, niż wynikałoby z wcześniejszych wyliczeń. To jest jednak "spis treści" mówiacy, jakie obiekty w danym miesiącu można obserwowac. Konkretna data obserwacji będzie widoczna dopiero na "karcie/stronie obiektu".
 
-W efekcie `4_plan_roczny.py` dostarcza zarówno strukturalny plan roczny (coded w `vis_data.json`), jak i wygodny, wizualny przegląd PDF, który jest później wykorzystywany w krokach `5_fov_and_maps.py` i `6_drukuj_strony_obiektow.py` do generowania stron atlasu.
+Wszystkie wykresy są ułożone na stronach A4 w formacie siatki (miesiąc na stronie, po trzy warianty), a na końcu listuje się podsumowanie liczby obiektów per wariant oraz podstawowe statystyki planu rocznego (mediana, udział top, średnia jakość itp.).
 
-* Funkcja `save_selected_to_vis_data` wywołuje `append_famous_labels_to_ids`, która dla wybranych obiektów dopisuje etykiety M/C/H do pola `name` (ale nie `id`), np. 'NGC 7000 (M33, C20)'
+W efekcie `4_plan_roczny.py` dostarcza zarówno strukturalny plan roczny (coded w `vis_data.json`), jak i wygodny, wizualny przegląd w PDF, który jest później wykorzystywany w krokach `5_fov_and_maps.py` i `6_drukuj_strony_obiektow.py` do generowania stron atlasu.
 
 Raport końcowy zawiera:
 
 1. Medianę Score i podział Elita vs Reszta
-1. Listę odrzuconych obiektów z Top (score > mediana) z przyczynami
+1. Listę odrzuconych obiektów z Top (score > mediana) z listą najlepszych miesięcy i czasu ponad progiem minimalnej widoczności
 1. Listę obiektów użytych z puli poniżej mediany, posortowanych wg prestiżu katalogu
 1. Średnią jakość okna obserwacyjnego (% względem najlepszej możliwej nocy)
 1. Ocenę planu (WYBITNA / BARDZO DOBRA / DOBRA / KOMPROMISOWA)
 1. Miesięczne obciążenie kalendarza ze statusem (ELITA / DOBRE / WYPEŁNIACZE)
-1. Listę kompromisów – obiektów Top przypisanych do gorszych miesięcy"
+1. Listę kompromisów – obiektów Top przypisanych do gorszych miesięcy
 
 ### 3.5.4
-Moduł generuje dodatkową stronę ze spisem wybranych obiektów na początku PDF. Funkcja `generate_summary_page` tworzy układ dwukolumnowy z tabelami zawierającymi nazwę obiektu, miesiąc przypisania i wariant. Obiekty są sortowane alfabetycznie. Wykorzystuje `matplotlib.table` z customowym formatowaniem.
+Moduł generuje dodatkową stronę ze spisem wybranych obiektów na początku PDF. Funkcja `generate_summary_page` tworzy układ dwukolumnowy z tabelami zawierającymi nazwę obiektu, miesiąc przypisania i wariant. Obiekty są sortowane alfabetycznie. Wykorzystuje `matplotlib.table` z customowym formatowaniem. Służy do odnalezienia obiektu na wykresach wariantów miesięcznych. 
 
 ---
 
@@ -329,24 +320,31 @@ Moduł generuje dodatkową stronę ze spisem wybranych obiektów na początku PD
 
 **Cel:** generacja kadrów FOV i map kontekstowych dla obiektów oznaczonych jako `selected` w `vis_data.json` z użyciem biblioteki starplot.
 
-`preload_open_ngc` tworzy przykładową mapę w projekcji Mercatora, ładując do pamięci katalog `OPEN_NGC`, gwiazdozbiory i gwiazdy do ~11 mag, co działa jako warm‑up backendu starplot.
-`build_objects_from_vis_data` filtruje sekcję `objects` pliku `vis_data.json`, pozostawiając tylko obiekty z niepustym polem `selected` i zwraca je jako DataFrame.
-`get_camera_params` pobiera konfigurację kamery z `vis_data["parameters"]["camera"]`, wypisuje ją w formie czytelnego komunikatu i zwraca jako słownik przekazywany do workerów.
-`create_camera_object` tworzy obiekt `Camera` na podstawie słownika, z polami ogniskowej, pitch, rozmiaru matrycy i rozdzielczości.
-
-Funkcje `_worker_render_fov` i `_worker_render_context` tworzą odpowiednio silniki `OpticMapEngine` i `ContextMapEngine` ze zdefiniowanymi stylami i zapisują wygenerowane obrazy do katalogu `starplots`.
-`generate_fov_pngs` oraz `generate_context_pngs` budują listę zadań dla obiektów, dla których brakuje odpowiednich plików PNG, a następnie renderują je równolegle przy użyciu `ProcessPoolExecutor`, raportując postęp przez `tqdm`.
-Funkcja `main` spina wszystko: preload danych, wczytanie `vis_data`, wybór obiektów i wywołanie generatorów FOV oraz map kontekstowych.
+* Funkcja `preload_open_ngc` tworzy przykładową mapę w projekcji Mercatora, ładując do pamięci katalog `OPEN_NGC`, gwiazdozbiory i gwiazdy do ~11 mag, co działa jako warm‑up backendu starplot.
+* Funkcja `build_objects_from_vis_data` filtruje sekcję `objects` pliku `vis_data.json`, pozostawiając tylko obiekty z niepustym polem `selected` i zwraca je jako DataFrame.
+* Funkcja `get_camera_params` pobiera konfigurację kamery z `vis_data["parameters"]["camera"]`, wypisuje ją w formie czytelnego komunikatu i zwraca jako słownik przekazywany do workerów.
+* Funkcja `create_camera_object` tworzy obiekt `Camera` na podstawie słownika, z polami ogniskowej, pitch, rozmiaru matrycy i rozdzielczości.
+* Funkcje `_worker_render_fov` i `_worker_render_context` tworzą odpowiednio silniki `OpticMapEngine` i `ContextMapEngine` ze zdefiniowanymi stylami i zapisują wygenerowane obrazy do katalogu `starplots`.
+* `generate_fov_pngs` oraz `generate_context_pngs` budują listę zadań dla obiektów, dla których brakuje odpowiednich plików PNG, a następnie renderują je równolegle przy użyciu `ProcessPoolExecutor`, raportując postęp przez `tqdm`.
+* Funkcja `main` spina wszystko: preload danych, wczytanie `vis_data`, wybór obiektów i wywołanie generatorów FOV oraz map kontekstowych.
 
 ---
 
 ### 3.7. `6_drukuj_strony_obiektow.py`
 
-**Cel:** wygenerowanie stron atlasu w formacie A4 z informacjami o obiekcie, wykresem nocy nowiu, kadrem FOV i rocznym wykresem widoczności.
+**Cel:** wygenerowanie stron atlasu w formacie A4 z informacjami o obiekcie, wykresem najlepszej nocy w miesiącu, do którego obiekt jest przypisany, kadrem FOV i rocznym wykresem widoczności.
 
 Moduł `6_drukuj_strony_obiektow.py` odpowiada za konwersję obiektów z `vis_data.json` (w tym ich pola `selected` z `4_plan_roczny.py`) na wizualne strony A4 w formacie PDF, zgodne z konwencją atlasu astrofotograficznego.  
-Każda strona odpowiada jednemu obiektowi i składa się z czterech głównych bloków: nagłówka z metadanymi, wykresu nocy nowiu, kadru FOV oraz rocznego wykresu widoczności.  
-Moduł używa `matplotlib` do tworzenia wykresów oraz `reportlab` do układu strony i generowania finalnego PDF, a także wykorzystuje pliki `starplots/{id}.png` z `5_fov_and_maps.py` jako kadrów FOV.
+Każda strona odpowiada jednemu obiektowi i składa się z: 
+
+- nagłówka z metadanymi, 
+- wykresu nocy najlepszej w miesiącu przypisania (plus informacji, kiedy w roku wypada najlepsza noc), 
+- kadru FOV,
+- rocznego wykresu widoczności,
+- wykresu jakościowych godzin obserwacji w roku (z księżycem i bez księżyca),
+- mapy kontekstowej (na osobnej stronie).
+
+Moduł używa `matplotlib` do tworzenia wykresów oraz `reportlab` do układu strony i generowania finalnego PDF, a także wykorzystuje pliki `starplots/{id}.png` z `5_fov_and_maps.py` jako kadrów FOV i map kontekstowych.
 
 #### 3.7.1. Ustawienia strony i layout
 
@@ -358,9 +356,9 @@ Określane są również:
 
 Cała strona jest dzielona na cztery sekcje:
 - nagłówek na górze strony,
-- główny wykres nocy nowiu (w środku),
-- kadr FOV z prawej lub lewej strony,
-- roczny wykres widoczności na dole (lub w dalszej części strony).
+- główny wykres nocy z lewej i kadr FOV z prawej strony,
+- roczny wykres widoczności,
+- godziny jakościowe na przestrzeni roku.
 
 Obszar dla każdej sekcji jest wyrażony jako `Rect` w współrzędnych „figury” Matplotlib, co pozwala na dokładne pozycjonowanie wszystkich elementów.
 
@@ -393,12 +391,11 @@ Wynik (`fov_arcmin`, `fov_deg`) jest później używany:
 #### 3.7.4. Formatowanie indeksów i nagłówka
 
 Funkcja `format_indeksy(common_names, extra_info, max_length=120)` służy do przycinania długich ciągów indeksów i aliasów obiektu, aby zmieściły się w jednej linii nagłówka na stronie A4.  
+
 Przykładowe operacje:
 - łączenie pól `common_names` i `extra_info` w jeden tekst (np. `"Sh2-155, IC 1805, Heart Nebula"`),
 - przycinanie do `max_length` znaków, z dodaniem `…` na końcu, jeśli tekst jest zbyt długi,
 - usuwanie powtórzonych lub zduplikowanych nazw.
-
-Wyjściowy tekst jest używany w nagłówku strony jako linia indeksów pod głównym `id` i nazwą obiektu.
 
 #### 3.7.5. Budowa strony obiektu
 
@@ -414,36 +411,29 @@ Dla pojedynczego obiektu `obj` z `vis_data["objects"]` funkcja tworzy stronę A4
    - rozmiar kątowy `size` (np. `80′`),
    - jasność `mag` (np. `4.5`),
    - skrócone `indeksy` z `format_indeksy`,
-   - informacja o `variant` i `month` z `selected` (np. `Wariant A, Marzec 2026`).
 
-2. **Wykres nocy nowiu**  
+2. **Wykres nocy**  
    Funkcja tworzy `axes` w obszarze środkowym strony i rysuje:
    - krzywą wysokości obiektu w ciągu nocy (godziny lokalne na osi X, wysokość w stopniach na osi Y),
-   - krzywą wysokości Słońca (z oznaczeniem granic zmierzchu: `minalt` oraz `sunlimit`),
-   - półcześnie `qual_segments`, z tłem kodującym fazy nocy (np. ciemne tło dla nocy astronomicznej),
-   - oznaczenie momentu nowiu (np. `New Moon`),
-   - siatkę godzinową i linie graniczne (np. `minalt`, `sunlimit`).
-
-   Wartości `q_hours` dla tej konkretnej nocy nowiu są pobierane z `observing_data` i zaznaczone na wykresie jako „okno jakości obserwacji”.
+   - pola wysokości Słońca (z oznaczeniem granic zmierzchu: `minalt` oraz `sunlimit`),
+   - siatkę godzinową i linie graniczne (`minalt`, wysokość księżyca).
 
 3. **Kadr FOV**  
    - funkcja wczytuje obraz `starplots/{id}.png` z katalogu `starplot_dir`,
    - skaluje go do odpowiedniego rozmiaru wewnątrz `plot_area` strony (np. prostokąt 6-in × 6-in),
    - dodaje tytuł nad kadrem zawierający informację o przekątnej FOV (np. `FOV: 120.5′ (diagonal)`),
-   - ewentualnie dodaje etykiety kierunków `N/E/S/W` i skalę kątową w arcminach.
 
    Kadr ten pokazuje okolice obiektu z widoku kamery/obserwatora, z uwzględnieniem rzeczywistych gwiazd i obiektów wokół obiektu głównego.
 
 4. **Roczny wykres widoczności**  
    Funkcja generuje `axes` z osiami:
    - X: dni roku (np. 1–365, z oznaczeniem miesięcy),
-   - Y: godziny (0–24) z przesunięciem czasowym lokalnym (`tz_offset` z `observing_data`).
+   - Y: godziny (`tz_offset` z `observing_data`).
 
    Na wykresie:
-   - zaznaczone jest tło reprezentujące nocne interwały (np. między `sunlimit` a `minalt`),
-   - nałożone są `qual_segments` z `observing_data` dla tego obiektu – segmenty godzin o `q_hours > 0`,
-   - oznaczone są noce nowiu (np. po 28 dniach),
-   - ewentualnie zaznaczone są punkty `selected` z `vis_data` (np. okrągła ramka w dniu przypisania do wariantu/miesiąca).
+   - zaznaczone jest tło reprezentujące nieobecność Słońca (Słońce poniżej zadanego progu),
+   - zastosowane jest przesuniecie zależne od zmiany czasu na letni/zimowy,
+   - nałozone jest `qual_segments` obiektu (widoczność obiektu na tle nieobecności Słońca)
 
    W rezultacie powstaje mapka „dzień–godzina”, z której widać, w jakie okna w roku dany obiekt ma dobre warunki obserwacyjne.
 
@@ -453,11 +443,10 @@ Ograniczenia `Astropy` dotyczące modeli IERS i długiego zakresu czasu (np. dla
 To zapobiega „zatłaczeniu” logów komunikatami typu `Downloading remote IERS` i podobnymi, szczególnie przy generowaniu dużych partii stron obiektów.
 
 Po zakończeniu `draw_object_page` moduł:
-- zapisuje aktualną `figura` Matplotlib jako `Canvas` w `pdf_canvas`,
-- dodaje strony `Astrophotography_Planner_2026_1.pdf` (część z rocznymi wykresami widoczności) oraz `Astrophotography_Planner_2026_2.pdf` (część z bardziej szczegółowymi strukturami, zależnie od konfiguracji),
+- zapisuje aktualną `figura` Matplotlib jako `Canvas`,
 - zamyka `plt.close("all")` po zakończeniu, aby uniknąć przecieku pamięci przy wielu stronach.
 
-W efekcie `6_drukuj_strony_obiektow.py` dostarcza zestaw stron A4, które są potem scalane w `7_polacz_pliki_pdf.py` z tytułem i pustymi stronami do finalnego atlasu `Astrophotography_Planner_2026.pdf`.
+W efekcie `6_drukuj_strony_obiektow.py` dostarcza zestaw stron A4, które są potem scalane w `7_polacz_pliki_pdf.py` z tytułem i pustymi stronami do finalnego atlasu `Astrophotography_Planner_ROK_MIASTO.pdf`.
 
 
 ---
@@ -467,10 +456,8 @@ W efekcie `6_drukuj_strony_obiektow.py` dostarcza zestaw stron A4, które są po
 **Cel:** wygenerowanie strony tytułowej atlasu i połączenie częściowych PDF w jeden końcowy plik.
 
 Moduł wczytuje `vis_data.json`, aby pobrać nazwę lokalizacji, współrzędne i rok, następnie na tej podstawie buduje tekst „miejsce wydania” z aktualną datą.
-Rejestrowane są czcionki Helvetica (z systemowego pliku TTF) w wariantach normal, bold i italic, co pozwala na poprawne wyświetlanie polskich znaków.
-Przy użyciu ReportLab generowana jest strona tytułowa z napisem „Astrophotography Planner {rok}” oraz informacją o miejscu i dacie, zapisana jako `tytulowa.pdf`.
+Przy użyciu ReportLab generowana jest strona tytułowa z napisem „Astrophotography Planner {rok}”, parametrami obserwacji, oraz informacją o miejscu i dacie.
 Następnie, przy użyciu `PdfWriter`, moduł składa finalny atlas: dodaje stronę tytułową, pustą stronę A4, dwie części atlasu (`Astrophotography_Planner_2026_1.pdf` i `_2.pdf`) oraz końcową pustą stronę, zapisując wynik do `Astrophotography_Planner_2026.pdf`.
-Na koniec tymczasowy plik tytułowy jest usuwany, a w logu wypisywana jest informacja o pomyślnym scaleniu plików.
 
 ---
 
@@ -480,7 +467,7 @@ Na koniec tymczasowy plik tytułowy jest usuwany, a w logu wypisywana jest infor
 
 - `2_ograniczenie_katalogu.py` – ustawienia lokalizacji, roku, progów `minalt` i `sunlimit`, klasy Bortle oraz parametrów kamery.
 - `3_wyliczenia.py` – domyślny limit liczby obiektów do przeliczenia, liczba workerów `max_workers`, flaga `force_all` do wymuszenia pełnego przeliczenia.
-- `4_plan_roczny.py` – liczba wariantów, pojemność miesięczna (`per_month_capacity`), próg `min_avg_q_hours` używany przy budowie macierzy kosztów.
+- `4_plan_roczny.py` – pojemność miesięczna (`per_month_capacity`).
 
 ### 4.2. Typowa sekwencja uruchomienia
 
