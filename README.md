@@ -6,7 +6,7 @@ Możesz wywołać `run.sh`, który założy środowisko i będzie uruchamiał ko
 
 Pełna dokumentacja znajduje się w pliku:
 
-![doc/Dokumentacja_techniczna.md](doc/Dokumentacja_techniczna.md)
+![Dokumentacja_techniczna.md](doc/Dokumentacja_techniczna.md)
 
 **Powodzenia!**
 
