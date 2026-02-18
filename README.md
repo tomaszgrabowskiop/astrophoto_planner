@@ -3,6 +3,8 @@
 Zestaw skryptów w języku Python służący do generowania spersonalizowanego rocznego planera astronomicznego oraz atlasu obiektów głębokiego nieba (DSO). Dla niezaawansowanych amatorów nieba. Atomatycznie wybiera z bazy 90k+ obiektów te, którymi warto się zająć w bieżącym roku. Obiekty są "rozkładane" na przestrzeni roku tak, żeby stworzyć najbardziej zachłanny plan astrofotograficzny.
 
 Możesz wywołać `run.sh`, który założy środowisko i będzie uruchamiał kolejne skrypty. Pozwoli Ci też pominąć wybrane kroki. Przydatne, jeśli dokonasz przeliczeń, które są najbardziej czasochłonne i nie będziesz chciał ich powtarzać.
+
+Pełna dokumentacja znajduje się w pliku: doc/AstroPhotography Planner – Dokumentacja techniczna.md
 **Powodzenia!**
 
 ---
