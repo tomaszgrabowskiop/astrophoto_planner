@@ -59,8 +59,8 @@ def load_vis_data(path: str = "vis_data.json") -> Dict[str, Any]:
 def save_vis_data(data: Dict[str, Any], path: str = "vis_data.json"):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
-def get_params_hash(
+# Poniżej: parametry wszystkie potrzebne dla FINAL
+def get_params_hash( 
     obj_min_alt_deg: float,
     sun_alt_limit_deg: float,
     lat: float,
@@ -78,6 +78,14 @@ def get_params_hash(
         f"{obj_min_alt_deg:.6f}|{sun_alt_limit_deg:.6f}|"
         f"{lat:.6f}|{lon:.6f}|{int(year)}"
     )
+    return hashlib.md5(s.encode()).hexdigest()
+# Poniżej: parametry potrzebne dla RAW
+def get_raw_params_hash(lat: float, lon: float, year: int) -> str:
+    """
+    Hash parametrów dla danych SUROWYCH (zależny tylko od geometrii i czasu).
+    Zmiana minalt/sunlimit NIE wpływa na ten hash.
+    """
+    s = f"{lat:.6f}|{lon:.6f}|{int(year)}"
     return hashlib.md5(s.encode()).hexdigest()
 
 def get_crossings(target, height, t_noon, location) -> List[Time]:
@@ -201,9 +209,7 @@ def compute_raw_data(
     ndays = len(days)
 
     # === SMART CACHE DLA RAW ===
-    current_raw_hash = get_params_hash(
-        obj_min_alt_deg, sun_alt_limit_deg, lat, lon, year
-    )
+    current_raw_hash = get_raw_params_hash(lat, lon, year)
     raw_hash_file = "observing_data_raw.hash"
 
     # === INICJALIZACJA CACHE ===
@@ -221,10 +227,10 @@ def compute_raw_data(
                     all_raw_data = pickle.load(f)
                 cache_valid = True
                 if VERBOSE:
-                    print(f"[CACHE] ✓ Załadowano {len(all_raw_data)} obiektów z RAW cache (RAW hash: {current_raw_hash[:8]}...).")
+                    print(f"[CACHE] Załadowano {len(all_raw_data)} obiektów z RAW cache (RAW hash: {current_raw_hash[:8]}...).")
             else:
                 if VERBOSE:
-                    print(f"[RAW CACHE] Invalidated! saved_hash={saved_hash[:8]} ≠ current={current_raw_hash[:8]}")
+                    print(f"[CACHE] Invalidated! saved_hash={saved_hash[:8]} ≠ current={current_raw_hash[:8]}")
                 os.remove(RAW_DATA_PKL)
                 os.remove(raw_hash_file)
         except Exception as e:
@@ -232,12 +238,12 @@ def compute_raw_data(
                 print(f"[ERROR] Błąd walidacji RAW hash/cache: {e}")
     else:
         if VERBOSE:
-            print("[RAW CACHE] Brak hash lub RAW cache - obliczam od nowa.")
+            print("[CACHE] Brak hash lub RAW cache - obliczam od nowa.")
 
     if not cache_valid:
         all_raw_data = {}  # ← KLUCZOWE! Pusty cache
         if VERBOSE:
-            print(f"[RAW]        Brak ważnego RAW cache - przygotowuję przeliczenie wszystkich obiektów.")
+            print(f"[RAW]   Brak ważnego RAW cache - przygotowuję przeliczenie wszystkich obiektów.")
 
     # Oblicz brakujące (lub wszystkie)
     existing_ids = set(all_raw_data.keys())
@@ -249,9 +255,9 @@ def compute_raw_data(
 
     if VERBOSE:
         if missing_data:
-            print(f"[RAW]     Brakujących obiektów w RAW cache: {len(missing_data)}.")
+            print(f"[RAW]   Brakujących obiektów w RAW cache: {len(missing_data)}.")
         else:
-            print("[RAW]      RAW cache zawiera wszystkie obiekty z aktualnego limitu.")
+            print("[RAW]   RAW cache zawiera wszystkie obiekty z aktualnego limitu.")
 
     if not missing_data:
         # ZAPIS HASH (nawet jeśli nie przeliczaliśmy)
@@ -269,7 +275,7 @@ def compute_raw_data(
     # === OPTYMALIZACJA: PRE-COMPUTE SUN ===
     # Liczymy dane słoneczne RAZ, zamiast robić to w każdym wątku dla każdego obiektu.
     if VERBOSE:
-        print(f"[PRE-COMPUTE] Obliczam dane Słońca dla {ndays} dni.")
+        print(f"[COMPUTE] Obliczam dane Słońca dla {ndays} dni.")
     
     precomputed_sun_pts = []
     # To jest szybkie (365 iteracji), więc robimy to w głównym wątku
@@ -320,8 +326,8 @@ def compute_raw_data(
         f.write(current_raw_hash)
     
     if VERBOSE:
-        print(f"[SAVE] Raw data zapisane do {RAW_DATA_PKL} ({len(all_raw_data)} obiektów).")
-        print(f"[SAVE] RAW hash zapisany: {current_raw_hash[:8]}...")
+        print(f"[SAVE]  Raw data zapisane do {RAW_DATA_PKL} ({len(all_raw_data)} obiektów).")
+        print(f"[SAVE]  RAW hash zapisany: {current_raw_hash[:8]}...")
 
     return all_raw_data
 
@@ -418,7 +424,7 @@ def reprocess_to_final(
     current_params_hash = get_params_hash(obj_min_alt_deg, sun_alt_limit_deg, lat, lon, year)
 
     if VERBOSE:
-        print(f"[INFO] Przeliczanie FINAL (Parallel): konwersja {len(all_raw_data)} obiektów.")
+        print(f"[INFO]  Przeliczanie FINAL (Parallel): konwersja {len(all_raw_data)} obiektów.")
 
     days_noon = Time([
         datetime.combine(d.date(), datetime.min.time()) + timedelta(hours=12)
@@ -474,7 +480,7 @@ def reprocess_to_final(
                 print(f"[ERROR] Błąd w FINAL dla obiektu: {e}")
 
     if VERBOSE:
-        print(f"[REPROCESS] ✓ Przetworzono {len(all_final_data)} obiektów.")
+        print(f"[COMPUTE] Przetworzono {len(all_final_data)} obiektów.")
 
     return all_final_data, current_params_hash
 
@@ -561,7 +567,7 @@ def reprocess_missing_final(
     ]
 
     if VERBOSE:
-        print(f"[INFO] Przeliczam FINAL (Parallel) dla {len(to_process_raw)} brakujących obiektów.")
+        print(f"[INFO]  Przeliczam FINAL (Parallel) dla {len(to_process_raw)} brakujących obiektów.")
 
     new_final: Dict[str, List[Dict]] = {}
     
@@ -583,7 +589,7 @@ def reprocess_missing_final(
 
         for future in tqdm(
             as_completed(futures),
-            desc="       Reprocess",
+            desc="          Reprocess",
             unit="obj",
             ncols=119,
             total=len(futures),
@@ -623,30 +629,30 @@ def run_engine_from_vis_json(
     if VERBOSE:
         if prev_state:
             print(
-                f"[INFO] Poprzednia lokalizacja: {prev_state.get('city_name', 'Unknown')}, "
+                f"[INFO]  Poprzednia lokalizacja: {prev_state.get('city_name', 'Unknown')}, "
                 f"({prev_state.get('lat', float('nan')):.2f}, {prev_state.get('lon', float('nan')):.2f}), rok {prev_state.get('year')}, "
                 f"nad horyzontem {prev_state.get('minalt')}, zmierzch {prev_state.get('sunlimit')}."
             )
             print(
-                    f"[INFO] Bieżąca lokalizacja:    {city_name}, "
+                    f"[INFO]  Bieżąca lokalizacja:    {city_name}, "
                     f"({lat:.2f}, {lon:.2f}), rok {year}, "
                     f"nad horyzontem {obj_min_alt_deg}, zmierzch {sun_alt_limit_deg}."
                 )
         else:
-            print("[INFO] Brak poprzedniego stanu silnika (ENGINE_STATE_PKL).")
+            print("[INFO]  Brak poprzedniego stanu silnika (ENGINE_STATE_PKL).")
 
     vis_objects = vis.get("objects", [])
     total_objects = len(vis_objects)
 
     if VERBOSE:
-        print(f"[INFO] W vis_data.json jest {total_objects} obiektów.")
+        print(f"[INFO]  W vis_data.json jest {total_objects} obiektów.")
 
     default_limit = 108
     max_limit = total_objects
 
     try:
         user_input = input(
-            f"       Ile obiektów przeliczyć? [domyślnie {default_limit}, Enter = wszystkie]: "
+            f"        Ile obiektów przeliczyć? [domyślnie {default_limit}, Enter = wszystkie]: "
         ).strip()
 
         if user_input == "":
@@ -656,14 +662,14 @@ def run_engine_from_vis_json(
             if 1 <= val <= max_limit:
                 object_limit = val
             else:
-                print(f"[WARN] Podano liczbę spoza zakresu 1..{max_limit}, używam wszystkich.")
+                print(f"[WARN]  Podano liczbę spoza zakresu 1..{max_limit}, używam wszystkich.")
                 object_limit = max_limit
     except Exception:
-        print("[WARN] Błąd wejścia, używam wszystkich obiektów.")
+        print("[WARN]  Błąd wejścia, używam wszystkich obiektów.")
         object_limit = max_limit
 
     if VERBOSE:
-        print(f"[INFO] Do przeliczenia: {object_limit} obiektów.")
+        print(f"[INFO]  Do przeliczenia: {object_limit} obiektów.")
 
     if VERBOSE:
         lat_str = f"{lat:.2f}"
@@ -671,12 +677,12 @@ def run_engine_from_vis_json(
         print("=" * 119)
         print("ENGINE: Smart Cache System")
         print("=" * 119)
-        print(f"[INFO] Lokalizacja: {city_name} ({lat_str}°, {lon_str}°)")
-        print(f"[INFO] Rok: {year}")
-        print(f"[INFO] Parametry: minimalna wysokość obiektu: {obj_min_alt_deg}°, "
+        print(f"[INFO]  Lokalizacja: {city_name} ({lat_str}°, {lon_str}°)")
+        print(f"[INFO]  Rok: {year}")
+        print(f"[INFO]  Parametry: minimalna wysokość obiektu: {obj_min_alt_deg}°, "
               f"wysokość słońca: {sun_alt_limit_deg}°")
-        print(f"[INFO] Cache RAW:   {RAW_DATA_PKL}")
-        print(f"[INFO] Cache FINAL: {FINAL_DATA_PKL}")
+        print(f"[INFO]  Cache RAW:   {RAW_DATA_PKL}")
+        print(f"[INFO]  Cache FINAL: {FINAL_DATA_PKL}")
         print("=" * 119)
 
     # --- FORCE-ALL: usunięcie cache ---
@@ -703,7 +709,7 @@ def run_engine_from_vis_json(
 
     if needs_reprocess or not os.path.exists(FINAL_DATA_PKL):
         if VERBOSE:
-            print("[REPROCESS] Parametry/lokalizacja/rok się zmieniły lub brak FINAL cache – pełne przeliczenie FINAL.")
+            print("[COMPUTE] Parametry/lokalizacja/rok się zmieniły lub brak FINAL cache – pełne przeliczenie FINAL.")
         all_final_data_full, current_hash = reprocess_to_final(json_path, all_raw_data, max_workers=max_workers)
         all_final_data = {oid: all_final_data_full[oid] for oid in target_ids if oid in all_final_data_full}
         with open(FINAL_DATA_PKL, "wb") as f:
@@ -711,8 +717,8 @@ def run_engine_from_vis_json(
         with open(FINAL_HASH_FILE, "w") as f:
             f.write(current_hash)
         if VERBOSE:
-            print(f"[SAVE] Final data zapisane do: {FINAL_DATA_PKL}")
-            print(f"[SAVE] Hash zapisany do: {FINAL_HASH_FILE}")
+            print(f"[SAVE]  Final data zapisane do: {FINAL_DATA_PKL}")
+            print(f"[SAVE]  Hash zapisany do: {FINAL_HASH_FILE}")
     else:
         if VERBOSE:
             print("[CACHE] Parametry się nie zmieniły, sprawdzam brakujące obiekty w FINAL cache.")
@@ -745,8 +751,8 @@ def run_engine_from_vis_json(
 
     if VERBOSE:
         print("=" * 119)
-        print("[INFO] Silnik zakończył pracę.")
-        print(f"[INFO] Raw objects: {len(all_raw_data)}. Final objects: {len(all_final_data)}.")
+        print("[INFO]  Silnik zakończył pracę.")
+        print(f"[INFO]  Raw objects: {len(all_raw_data)}. Final objects: {len(all_final_data)}.")
         print("=" * 119)
 
     return all_final_data
