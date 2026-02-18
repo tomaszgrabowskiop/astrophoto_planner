@@ -557,7 +557,7 @@ def main():
 
     # sortowanie alfabetyczne po ID
     df = df.sort_values("id")
-    #df = df.head(1)
+    #df = df.head(1) # Włącz dla debugowania po jednym lub wybranej liczbie obiektów
 
     output_name = f"Astrophotography_Planner_{YEAR}_2.pdf"
     with PdfPages(output_name) as pdf:
@@ -583,8 +583,6 @@ def main():
                 best_month_date = best_month_entry["day"]
                 nm_day = best_month_date.day
             else:
-                #best_month_date = assignment_date
-                #nm_day = assignment_date.day
                 nm_day = 15
             best_year_entry = None
             for d_entry in days_data:
@@ -598,9 +596,6 @@ def main():
                     best_year_date = best_month_date
                     best_year_m_hours = 0.0
             
-            #assignment_date = datetime.fromisoformat(sel["assignment_date"])
-            #nm_day = assignment_date.day
-    
             # KROK 1: Aktualizacja opisu paska i generowanie sekcji
             pbar.set_description(f"       Generowanie FOV: {oid}")
             draw_object_page(pdf, oid, month, nm_day,  row, all_data, camera, page_num,  tz,  best_year_date, best_year_m_hours,)
