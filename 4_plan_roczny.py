@@ -20,6 +20,7 @@ Wyjście:
 """
 
 import json
+import csv
 import pickle
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
@@ -213,6 +214,65 @@ def append_famous_labels_to_ids(vis_data: Dict) -> None:
         obj["name"] = new_name
 
 # ------------------------------------------------------------
+# Określanie priorytetu na podstawie common names
+# ------------------------------------------------------------
+
+def get_catalog_weight(obj_id: str, common_names_str: str) -> int:
+    """
+    Zwraca wagę (priorytet) obiektu na podstawie przynależności do katalogów.
+    Skanuje zarówno ID, jak i common_names.
+    
+    Zwraca wagę rosnącą (im wyższa liczba, tym ważniejszy obiekt):
+    NGC/IC = 90
+    Sh2    = 80
+    RCW    = 70
+    LBN    = 60
+    CED    = 50
+    PGC    = 40
+    BARN   = 30
+    LDN    = 20
+    Inne   = 10
+    """
+    # Hierarchia (odwrócona na wagi dla łatwiejszej matematyki)
+    PRIORITY_MAP = {
+        'ngc': 90, 'ic': 90,
+        'sh2': 80,
+        'rcw': 70,
+        'lbn': 60,
+        'ced': 50,
+        'pgc': 40,
+        'barn': 30,
+        'ldn': 20
+    }
+    
+    # Normalizacja tekstów do szukania
+    candidates = set()
+    # 1. Dodaj główne ID
+    candidates.add(str(obj_id).lower().strip())
+    # 2. Rozbij common_names (zakładamy separator przecinek, ale też spacje)
+    if common_names_str:
+        # Usuwamy nawiasy jeśli są, dzielimy po przecinkach
+        clean_cn = str(common_names_str).replace('(', '').replace(')', '')
+        tokens = [t.strip().lower() for t in clean_cn.split(',')]
+        candidates.update(tokens)
+        
+    max_weight = 10 # Domyślna waga dla "innych"
+    
+    for cand in candidates:
+        # Sprawdzamy od najsilniejszych
+        for key, weight in PRIORITY_MAP.items():
+            # Sprawdzenie: czy 'ngc' jest w 'ngc 7000' lub czy 'sh2' jest w 'sh2-155'
+            # Używamy startswith lub in, zależnie jak sformatowane są nazwy
+            # Bezpieczniej: sprawdźmy czy token zaczyna się od klucza
+            # Usuwamy spacje z kandydata żeby złapać "sh2-155" i "sh 2 155"
+            cand_nospace = cand.replace(" ", "").replace("-", "")
+            if cand_nospace.startswith(key):
+                if weight > max_weight:
+                    max_weight = weight
+    
+    return max_weight
+
+# ------------------------------------------------------------
 # ZAPIS DO vis_data.json – DODANIE FLAGI SELECTED
 # ------------------------------------------------------------
 
@@ -280,7 +340,6 @@ def get_nm_day(year: int, month: int) -> int:
             min_sep, best_day = sep, d
     return best_day
 
-
 def compute_night_length_for_date(
     year: int,
     month: int,
@@ -309,7 +368,6 @@ def compute_night_length_for_date(
     hours = total_minutes // 60
     minutes = total_minutes % 60
     return hours, minutes
-
 
 # ------------------------------------------------------------------------------------------------
 # Miesięczne najlepsze noce i pełna widoczność roczna  z observing_data.pkl
@@ -372,9 +430,18 @@ def build_monthly_variants(
     annual_vis_map: Dict[str, float] = None,
 ) -> List[MonthlyAssignment]:
     """
-    Tworzy warianty A, B, C używając algorytmu optymalizacyjnego (Hungarian Algorithm).
-    Cel: Zmaksymalizować sumę punktów (Score) przypisanych obiektów, przy zachowaniu
-    najlepszych możliwych okien czasowych (Quality Ratio).
+    Tworzy warianty A, B, C używając algorytmu optymalizacji globalnej (Hungarian Algorithm).
+    
+    LOGIKA HYBRYDOWA:
+    1. Obiekty Score > Mediana (ELITA):
+       - Priorytet: Score^3 * Quality.
+       - Mechanizm: Dostają ogromny offset (1e9), dzięki czemu algorytm ZAWSZE wybiera je pierwsze,
+         jeśli tylko pasują do slotu.
+         
+    2. Obiekty Score <= Mediana (RESZTA):
+       - Priorytet: Prestiż Katalogu (NGC > Sh2 > ... > LDN).
+       - Mechanizm: Score jest ignorowany. Waga katalogu jest mnożona przez stałą (1000),
+         a jakość (czas widoczności) służy tylko do rozstrzygania remisów wewnątrz tego samego katalogu.
     """
     if annual_vis_map is None:
         annual_vis_map = {}
@@ -384,6 +451,9 @@ def build_monthly_variants(
     # 1. Przygotowanie danych
     scores = {obj["id"]: float(obj.get("score", 0.0)) for obj in vis_data["objects"]}
     all_objs_list = list(scores.keys())
+    
+    # Szybki lookup do pełnych danych obiektu (żeby wyciągnąć common_names bez pętli)
+    obj_data_map = {obj["id"]: obj for obj in vis_data["objects"]}
     
     # Mapa: obj_id -> {month: hours}
     best_map: Dict[str, Dict[int, float]] = {}
@@ -408,10 +478,17 @@ def build_monthly_variants(
     print(f"[INFO] Obiektów do rozplanowania: {n_objects}")
     print(f"[INFO] Dostępnych slotów: {n_total_slots} (3 warianty x 12 miesięcy x {per_month_capacity})")
 
+    # --- OBLICZENIE MEDIANY (PRÓG PODZIAŁU LOGIKI) ---
+    all_scores_vals = list(scores.values())
+    median_score = np.median(all_scores_vals) if all_scores_vals else 0.0
+    print(f"[INFO] Mediana Score: {median_score:.2f} (Granica logiki Elita vs Reszta)")
+
     # 2. Budowa macierzy kosztów
     # Wiersze: obiekty
     # Kolumny: sloty (wariant A m1..m12, wariant B m1..m12, ...)
-    INVALID_COST = 1e9
+    INVALID_COST = 1e15 # Bardzo duża liczba oznaczająca "niemożliwe"
+    
+    # Inicjalizacja dużą wartością dodatnią (algorytm szuka minimum, my będziemy wstawiać ujemne)
     cost_matrix = np.full((n_objects, n_total_slots), INVALID_COST, dtype=float)
     
     col_idx_to_slot = {}
@@ -424,33 +501,63 @@ def build_monthly_variants(
                 col_idx_to_slot[col_idx] = (vname, month)
                 col_idx += 1
     
+    # Stała separacji - zapewnia, że najgorszy obiekt z Elity jest lepszy niż najlepszy z Reszty
+    # Elita będzie miała wartości rzędu -1,000,000,000
+    # Reszta będzie miała wartości rzędu -90,000
+    TIER_1_OFFSET = 1_000_000_000.0 
+
     for i, oid in enumerate(valid_objects):
         month_map = best_map.get(oid, {})
-        obj_score = scores.get(oid, 0.0)
+        obj_score = float(scores.get(oid, 0.0))
+        
+        # Pobieramy common_names z mapy
+        obj_data = obj_data_map.get(oid, {})
+        common_names = obj_data.get("common_names", "")
         
         # Znajdź globalne maksimum godzin dla tego obiektu (do obliczenia quality ratio)
         if not month_map: continue
         max_possible_hours = max(month_map.values())
         if max_possible_hours <= 0: continue
 
+        # --- LOGIKA HYBRYDOWA ---
+        is_elite = obj_score > median_score
+        
+        # Jeśli obiekt jest z "ogona", policz jego wagę katalogową RAZ
+        catalog_weight = 0
+        if not is_elite:
+            catalog_weight = get_catalog_weight(oid, common_names)
+
         for c in range(n_total_slots):
             vname, month = col_idx_to_slot[c]
             hours = month_map.get(month, 0.0)
             
             if hours >= min_avg_q_hours:
-                # --- FUNKCJA KOSZTU (SERCE ALGORYTMU) ---
-                # Quality Ratio: Jak bardzo ten miesiąc jest gorszy od najlepszego możliwego?
-                # 1.0 = idealny miesiąc, 0.5 = połowa czasu stracona
+                # Quality Ratio: 0.0 - 1.0
                 quality_ratio = hours / max_possible_hours
                 
-                # Weighted Score: Score podniesiony do potęgi 3 (żeby faworyzować Top),
-                # pomnożony przez Quality liniowo (żeby karać za złe miesiące, ale nie zabijać).
-
-                base_score = float(obj_score)
-                weighted_score = (base_score ** 3) * (quality_ratio ** 1.0)
+                final_cost = 0.0
                 
-                # Koszt jest ujemny, bo linear_sum_assignment szuka minimum
-                cost_matrix[i, c] = -weighted_score
+                if is_elite:
+                    # === LOGIKA A: ELITA (Score > Mediana) ===
+                    # Stara logika: Score^3 * Quality
+                    # Dodajemy TIER_1_OFFSET, żeby "przebić" punktowo wszystko z grupy niższej.
+                    # Znak minus, bo solver szuka MINIMUM.
+                    
+                    weighted_val = (obj_score ** 3) * (quality_ratio ** 1.0)
+                    final_cost = -(TIER_1_OFFSET + weighted_val)
+                    
+                else:
+                    # === LOGIKA B: RESZTA (Score <= Mediana) ===
+                    # Logika: Prestiż Katalogu.
+                    # Wzór: Waga Katalogu (np. 90) * 1000 + Quality * 100
+                    # Max wynik stąd to ok. 90,100. To dużo mniej niż 1,000,000,000.
+                    
+                    base_val = catalog_weight * 1000.0
+                    quality_bonus = quality_ratio * 100.0 
+                    
+                    final_cost = -(base_val + quality_bonus)
+
+                cost_matrix[i, c] = final_cost
 
     # 3. Rozwiązanie (Hungarian Algorithm)
     try:
@@ -465,7 +572,8 @@ def build_monthly_variants(
     
     for r, c in zip(row_ind, col_ind):
         cost = cost_matrix[r, c]
-        if cost >= INVALID_COST / 2: continue # Ignoruj nieprawidłowe przypisania
+        # Sprawdzamy, czy koszt jest "walidny" (mniejszy niż nasza inicjalizacja błędów)
+        if cost >= INVALID_COST / 100: continue 
             
         oid = valid_objects[r]
         vname, month = col_idx_to_slot[c]
@@ -476,16 +584,14 @@ def build_monthly_variants(
     # ========================================================================
     # RAPORT KOŃCOWY
     # ========================================================================
-    all_scores_list = list(scores.values())
-    median_score = np.median(all_scores_list) if all_scores_list else 0.0
+    
+    print("\n" + "=" * 119)
+    print(" RAPORT KOŃCOWY PO PRZYDZIALE DO WARIANTÓW (OPTIMAL + PRESTIGE LOGIC)")
+    print("=" * 119)
+    # ... (Tu wklejasz resztę swojej funkcji raportującej od linii: print(f"[INFO] Mediana score..."))
     
     top_ids = [oid for oid in all_objs_list if scores.get(oid, 0) > median_score]
     
-    print("\n" + "=" * 119)
-    print(" RAPORT KOŃCOWY PO PRZYDZIALE DO WARIANTÓW (OPTIMAL)")
-    print("=" * 119)
-    print(f"[INFO] Mediana score w katalogu: {median_score:.2f}")
-
     top_count = len(top_ids)
     top_assigned = [oid for oid in top_ids if oid in assigned_objects]
     top_unassigned = [oid for oid in top_ids if oid not in assigned_objects]
@@ -506,55 +612,55 @@ def build_monthly_variants(
         top_unassigned.sort(key=lambda x: scores.get(x, 0), reverse=True)
         for oid in top_unassigned:
             score_val = scores.get(oid, 0.0)
-            # Pobierz info o najlepszych miesiącach
             month_map = best_map.get(oid, {})
             best_list = sorted(month_map.items(), key=lambda x: x[1], reverse=True)[:3]
-            
             if best_list:
                 best_str = ", ".join([f"{m:02d} ({v:.1f}h)" for m, v in best_list])
             else:
-                best_str = "brak danych (poniżej progu minhours)"
-                
+                best_str = "brak danych"
             print(f"       • {oid:<8} Score: {score_val:5.1f} | Najlepsze: {best_str}")
 
-    # Raport o obiektach z "ogona" (poniżej mediany)
     assigned_from_rest = [oid for oid in assigned_objects if scores.get(oid, 0) <= median_score]
-
-    # Sprawdzenie wypełnienia slotów
     total_assigned_count = len(assigned_objects)
+    
     if total_assigned_count == n_total_slots:
         print("[INFO] Wszystkie sloty zostały wypełnione!")
     else:
         print(f"\n[INFO] Sloty NIE zostały wypełnione w całości ({total_assigned_count}/{n_total_slots}).")
             
-
-    
-    print("\n[INFO] Obiekty użyte z puli poniżej mediany score:")
+    print("\n[INFO] Obiekty użyte z puli poniżej mediany score (Sortowane wg Prestiżu):")
     if assigned_from_rest:
         print(f"       Łącznie: {len(assigned_from_rest)} obiektów z tej puli.")
         
-        # Sortujemy malejąco po Score
-        assigned_from_rest.sort(key=lambda x: scores.get(x, 0), reverse=True)
+        # Sortowanie do wyświetlania: Najpierw waga katalogu, potem quality
+        def sort_rest_key(oid):
+            d = obj_data_map.get(oid, {})
+            w = get_catalog_weight(oid, d.get("common_names", ""))
+            return w
+            
+        assigned_from_rest.sort(key=sort_rest_key, reverse=True)
         
-        # Bierzemy top 15 do wyświetlenia
         limit = 15
         to_show = assigned_from_rest[:limit]
         remaining_count = len(assigned_from_rest) - limit
         
         for idx, oid in enumerate(to_show, 1):
             score_val = scores.get(oid, 0.0)
+            
+            # Pobieramy wagę żeby pokazać w raporcie
+            d = obj_data_map.get(oid, {})
+            w = get_catalog_weight(oid, d.get("common_names", ""))
+            
             month_map = best_map.get(oid, {})
-            # Pobierz top 3 najlepsze miesiące
             best_list = sorted(month_map.items(), key=lambda x: x[1], reverse=True)[:3]
             best_str = ", ".join([f"{m:02d} ({v:.1f}h)" for m, v in best_list])
             
-            print(f"       {idx:2d}. {oid:<8} Score: {score_val:5.1f} | Najlepsze: {best_str}")
+            print(f"       {idx:2d}. {oid:<12} (Waga: {w}) Score: {score_val:4.1f} | Najlepsze: {best_str}")
             
         if remaining_count > 0:
             print(f"       ...i jeszcze {remaining_count} obiektów.")
-            
     else:
-        print("       (brak obiektów z tej puli użytych do wypełnienia slotów)")
+        print("       Brak")
 
     pct_total = 100.0 * total_assigned_count / len(all_objs_list) if all_objs_list else 0.0
     print(f"\n[INFO] Łącznie przypisanych obiektów: {total_assigned_count}/{len(all_objs_list)} ({pct_total:.1f}%)")
@@ -570,18 +676,14 @@ def build_monthly_variants(
             )
         )
     
-    # ========================================================================
-    # STATYSTYKI KOŃCOWE DLA UŻYTKOWNIKA (Quality & Satisfaction)
-    # ========================================================================
+    # --- RAPORT KOŃCOWY (Quality & Satisfaction) ---
     print(f" PODSUMOWANIE JAKOŚCI PLANU ({n_objects} obiektów / {n_total_slots} slotów)")
     print("=" * 119)
 
-    # 1. WSKAŹNIK ZADOWOLENIA (SATISFACTION RATIO)
-    # ------------------------------------------------------------------------
     total_quality_ratio = 0.0
     quality_counts = 0
-    month_scores = {m: [] for m in range(1, 13)}  # Do mapy ciepła
-    sacrificed_gems = []  # Do listy ofiar
+    month_scores = {m: [] for m in range(1, 13)}
+    sacrificed_gems = []
 
     for oid, (vname, assigned_month) in assigned_objects.items():
         month_map = best_map.get(oid, {})
@@ -595,11 +697,9 @@ def build_monthly_variants(
             total_quality_ratio += ratio
             quality_counts += 1
             
-            # Zbieramy dane do mapy ciepła
             obj_score = scores.get(oid, 0.0)
             month_scores[assigned_month].append(obj_score)
             
-            # Szukamy ofiar (High Score > 80, ale Quality < 0.7)
             if obj_score >= 80.0 and ratio < 0.7:
                 best_m = max(month_map, key=month_map.get)
                 best_h = month_map[best_m]
@@ -613,7 +713,6 @@ def build_monthly_variants(
 
     avg_satisfaction = (total_quality_ratio / quality_counts * 100) if quality_counts > 0 else 0.0
     
-    # Ocena słowna
     if avg_satisfaction >= 90: grade = "WYBITNA"
     elif avg_satisfaction >= 80: grade = "BARDZO DOBRA"
     elif avg_satisfaction >= 70: grade = "DOBRA"
@@ -622,13 +721,10 @@ def build_monthly_variants(
     print(f"[INFO] Średnia jakość okna obserwacyjnego: {avg_satisfaction:.1f}% ({grade}).")
     print(f"       Średnia jakość okna obserwacyjnego względem najlepszej możliwej w roku: {avg_satisfaction:.0f}%.")
 
-    # 2. MAPA CIEPŁA (MONTHLY LOAD)
-    # ------------------------------------------------------------------------
     print("\n[INFO] Obciążenie kalendarza (Średni Score obiektów w miesiącu):")
     print(f"       {'Miesiąc':<10} {'Śr. Score':<10} {'Liczba':<8} {'Status'}")
     print(f"       {'-'*45}")
     
-    # Nazwy miesięcy (skrócone)
     MONTH_NAMES = ["Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Lip", "Sie", "Wrz", "Paź", "Lis", "Gru"]
     
     for m in range(1, 13):
@@ -637,7 +733,6 @@ def build_monthly_variants(
         count = len(m_scores)
         month_name = MONTH_NAMES[m-1]
         
-        # Status wizualny
         if avg_score >= 80: status = "🔥 ELITA (Top Obiekty)"
         elif avg_score >= 60: status = "✨ DOBRE (Solidne)"
         elif count > 0: status = "☁️  WYPEŁNIACZE (Słabsze)"
@@ -648,13 +743,9 @@ def build_monthly_variants(
         else:
             print(f"       {month_name:<10} {'-':>6}     {0:>2d} szt.   {status}")
 
-    # 3. LISTA OFIAR (SACRIFICED GEMS)
-    # ------------------------------------------------------------------------
     if sacrificed_gems:
         print("\n[WARN] Kompromisy (Top Obiekty przesunięte do gorszych miesięcy):")
-        # Sortujemy od najbardziej bolesnych strat (najwyższy score)
         sacrificed_gems.sort(key=lambda x: x['score'], reverse=True)
-        
         for gem in sacrificed_gems:
             print(f"       • {gem['oid']:<8} (Score {gem['score']:.0f}): "
                   f"Miesiąc {gem['assigned_m']:02d} ({gem['assigned_h']:.1f}h) "
@@ -664,9 +755,9 @@ def build_monthly_variants(
         print("\n[INFO] Brak bolesnych kompromisów (wszystkie Top Obiekty mają dobre warunki).")
 
     print("=" * 119 + "\n")
-
     
     return final_variants
+
 
 # ------------------------------------------------------------
 # Rysowanie wykresów – jedna strona na miesiąc, warianty A/B/C
@@ -781,7 +872,6 @@ def plot_month_variant(
         loc="left",
         fontsize=7,
     )
-
 
 def generate_monthly_pdf(
     output_path: str,
