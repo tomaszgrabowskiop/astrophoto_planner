@@ -20,7 +20,6 @@ Wyjście:
 """
 
 import json
-import csv
 import pickle
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
