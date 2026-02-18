@@ -456,8 +456,14 @@ W efekcie `6_drukuj_strony_obiektow.py` dostarcza zestaw stron A4, które są po
 **Cel:** wygenerowanie strony tytułowej atlasu i połączenie częściowych PDF w jeden końcowy plik.
 
 Moduł wczytuje `vis_data.json`, aby pobrać nazwę lokalizacji, współrzędne i rok, następnie na tej podstawie buduje tekst „miejsce wydania” z aktualną datą.
-Przy użyciu ReportLab generowana jest strona tytułowa z napisem „Astrophotography Planner {rok}”, parametrami obserwacji, oraz informacją o miejscu i dacie.
-Następnie, przy użyciu `PdfWriter`, moduł składa finalny atlas: dodaje stronę tytułową, pustą stronę A4, dwie części atlasu (`Astrophotography_Planner_2026_1.pdf` i `_2.pdf`) oraz końcową pustą stronę, zapisując wynik do `Astrophotography_Planner_2026.pdf`.
+Przy użyciu ReportLab generowana jest strona tytułowa z napisem „Astrophotography Planner {rok}”, parametrami obserwacji, oraz informacją o miejscu i dacie. parametry obserwacji to: 
+
+- Lokalizacja (plus lat i lon), skala Bortle
+- Parametry teleskopu i kamery,
+- Parametry służące do wyliczeń (`minalt`, `sunlimit`, minimalne okno obserwacji obiektu, priorytet katalogów),
+- Liczba wszystkich obiektów w atlasie.
+
+Następnie, przy użyciu `PdfWriter`, moduł składa finalny atlas: dodaje stronę tytułową, pustą stronę A4, dwie części atlasu (`Astrophotography_Planner_ROK_1.pdf` i `Astrophotography_Planner_ROK_2.pdf`) oraz końcową pustą stronę, zapisując wynik do `Astrophotography_Planner_ROK_MIASTO.pdf`.
 
 ---
 
