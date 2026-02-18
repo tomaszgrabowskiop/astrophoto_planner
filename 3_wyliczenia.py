@@ -56,11 +56,9 @@ def load_vis_data(path: str = "vis_data.json") -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
 def save_vis_data(data: Dict[str, Any], path: str = "vis_data.json"):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
 
 def get_params_hash(
     obj_min_alt_deg: float,
@@ -82,7 +80,6 @@ def get_params_hash(
     )
     return hashlib.md5(s.encode()).hexdigest()
 
-
 def get_crossings(target, height, t_noon, location) -> List[Time]:
     times = t_noon + np.linspace(0, 24, CROSSING_SAMPLES) * u.hour
     altaz = target.transform_to(AltAz(obstime=times, location=location))
@@ -97,7 +94,6 @@ def get_crossings(target, height, t_noon, location) -> List[Time]:
 
     return sorted(res)
 
-
 def load_engine_state() -> dict:
     if os.path.exists(ENGINE_STATE_PKL):
         try:
@@ -107,11 +103,9 @@ def load_engine_state() -> dict:
             return {}
     return {}
 
-
 def save_engine_state(state: dict):
     with open(ENGINE_STATE_PKL, "wb") as f:
         pickle.dump(state, f)
-
 
 def mask_to_segments(mask, h_start=H_START, h_end=H_END) -> List[Tuple[float, float]]:
     mask = np.asarray(mask, dtype=bool)
@@ -141,7 +135,6 @@ def mask_to_segments(mask, h_start=H_START, h_end=H_END) -> List[Tuple[float, fl
 
     return segments
 
-
 # =====================================================
 # ETAP 1: OBLICZANIE DANYCH SUROWYCH (RAW)
 # =====================================================
@@ -152,32 +145,34 @@ def process_single_object_raw(
     location: EarthLocation,
     days_noon: Time,
     t_night_offsets_hours: np.ndarray,
+    precomputed_sun_pts: List[List[datetime]],  # <--- NOWY ARGUMENT
 ) -> RawObjectData:
     obj_id, ra, dec = obj_data
     coord = SkyCoord(ra * u.deg, dec * u.deg)
     ndays = len(days)
 
+    # 1. Obliczanie wysokości w siatce godzinowej (wektoryzowane - szybkie)
     t_grid = days_noon[:, None] + t_night_offsets_hours[None, :] * u.hour
     frame = AltAz(obstime=t_grid.reshape(-1), location=location)
     o_alt_all = coord.transform_to(frame).alt.deg.reshape(ndays, N_SAMPLES)
 
-    sun_pts_list = []
     obj_pts_list = []
 
-    for day_idx, d in enumerate(days):
-        t_noon = days_noon[day_idx]
-        sun_pts = get_crossings(get_sun(t_noon), 0, t_noon, location)
+    # 2. Pętla po dniach - teraz liczy TYLKO crossingi obiektu
+    # Słońce (sun_pts) jest już policzone i przekazane w argumencie
+    for day_idx, t_noon in enumerate(days_noon):
+        # USUNIĘTO: sun_pts = get_crossings(get_sun(t_noon), ...)
+        
+        # Liczymy tylko obiekt
         obj_pts = get_crossings(coord, 0, t_noon, location)
-        sun_pts_list.append([p.datetime for p in sun_pts])
         obj_pts_list.append([p.datetime for p in obj_pts])
 
     return RawObjectData(
         obj_id=obj_id,
         o_alt_all=o_alt_all,
-        sun_pts_list=sun_pts_list,
+        sun_pts_list=precomputed_sun_pts,  # Zwracamy gotowe dane słońca
         obj_pts_list=obj_pts_list,
     )
-
 
 def compute_raw_data(
     json_path: str,
@@ -195,27 +190,56 @@ def compute_raw_data(
     location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
     year = vis["year"]
 
+    params = vis.get("parameters", {})
+    obj_min_alt_deg = params.get("minalt", 20.0)
+    sun_alt_limit_deg = params.get("sunlimit", -6.0)
+
     objects = vis["objects"][:object_limit]
     objects_data = [(obj["id"], obj["ra"], obj["dec"]) for obj in objects]
 
     days = pd.date_range(f"{year}-01-01", f"{year}-12-31", freq="D")
     ndays = len(days)
 
-    # wczytaj istniejący RAW cache
+    # === SMART CACHE DLA RAW ===
+    current_raw_hash = get_params_hash(
+        obj_min_alt_deg, sun_alt_limit_deg, lat, lon, year
+    )
+    raw_hash_file = "observing_data_raw.hash"
+
+    # === INICJALIZACJA CACHE ===
     all_raw_data: Dict[str, RawObjectData] = {}
-    if os.path.exists(RAW_DATA_PKL):
-        if VERBOSE:
-            print(f"[CACHE] Wczytuję dane surowe z {RAW_DATA_PKL}.")
+    cache_valid = False
+    
+    # Sprawdź hash + wczytaj cache
+    if os.path.exists(RAW_DATA_PKL) and os.path.exists(raw_hash_file):
         try:
-            with open(RAW_DATA_PKL, "rb") as f:
-                all_raw_data = pickle.load(f)
-            if VERBOSE:
-                print(f"[CACHE] ✓ Załadowano {len(all_raw_data)} obiektów z RAW cache.")
+            with open(raw_hash_file, "r") as f:
+                saved_hash = f.read().strip()
+            
+            if current_raw_hash == saved_hash:
+                with open(RAW_DATA_PKL, "rb") as f:
+                    all_raw_data = pickle.load(f)
+                cache_valid = True
+                if VERBOSE:
+                    print(f"[CACHE] ✓ Załadowano {len(all_raw_data)} obiektów z RAW cache (RAW hash: {current_raw_hash[:8]}...).")
+            else:
+                if VERBOSE:
+                    print(f"[RAW CACHE] Invalidated! saved_hash={saved_hash[:8]} ≠ current={current_raw_hash[:8]}")
+                os.remove(RAW_DATA_PKL)
+                os.remove(raw_hash_file)
         except Exception as e:
             if VERBOSE:
-                print(f"[ERROR] Błąd wczytywania RAW cache: {e}, obliczam od nowa...")
-            all_raw_data = {}
+                print(f"[ERROR] Błąd walidacji RAW hash/cache: {e}")
+    else:
+        if VERBOSE:
+            print("[RAW CACHE] Brak hash lub RAW cache - obliczam od nowa.")
 
+    if not cache_valid:
+        all_raw_data = {}  # ← KLUCZOWE! Pusty cache
+        if VERBOSE:
+            print(f"[RAW]        Brak ważnego RAW cache - przygotowuję przeliczenie wszystkich obiektów.")
+
+    # Oblicz brakujące (lub wszystkie)
     existing_ids = set(all_raw_data.keys())
     missing_data = [
         (obj_id, ra, dec)
@@ -225,15 +249,15 @@ def compute_raw_data(
 
     if VERBOSE:
         if missing_data:
-            print(f"[RAW] Brakujących obiektów w RAW cache: {len(missing_data)}.")
+            print(f"[RAW]     Brakujących obiektów w RAW cache: {len(missing_data)}.")
         else:
-            print("[RAW] RAW cache zawiera wszystkie obiekty z aktualnego limitu.")
+            print("[RAW]      RAW cache zawiera wszystkie obiekty z aktualnego limitu.")
 
     if not missing_data:
+        # ZAPIS HASH (nawet jeśli nie przeliczaliśmy)
+        with open(raw_hash_file, "w") as f:
+            f.write(current_raw_hash)
         return all_raw_data
-
-    if VERBOSE:
-        print(f"[COMPUTE] Obliczam RAW dla {len(missing_data)} brakujących obiektów podczas {ndays} dni.")
 
     days_noon = Time([
         datetime.combine(d.date(), datetime.min.time()) + timedelta(hours=12)
@@ -242,12 +266,28 @@ def compute_raw_data(
 
     t_night_offsets_hours = np.linspace(2, 19, N_SAMPLES)
 
+    # === OPTYMALIZACJA: PRE-COMPUTE SUN ===
+    # Liczymy dane słoneczne RAZ, zamiast robić to w każdym wątku dla każdego obiektu.
+    if VERBOSE:
+        print(f"[PRE-COMPUTE] Obliczam dane Słońca dla {ndays} dni.")
+    
+    precomputed_sun_pts = []
+    # To jest szybkie (365 iteracji), więc robimy to w głównym wątku
+    for t_noon in tqdm(days_noon, desc="          Sun Calc", ncols=119):
+        # 0 oznacza horyzont (wschód/zachód słońca)
+        s_pts = get_crossings(get_sun(t_noon), 0, t_noon, location)
+        precomputed_sun_pts.append([p.datetime for p in s_pts])
+
+    if VERBOSE:
+        print(f"[COMPUTE] Obliczam RAW dla {len(missing_data)} brakujących obiektów...")
+
     process_raw_func = partial(
         process_single_object_raw,
         days=days,
         location=location,
         days_noon=days_noon,
         t_night_offsets_hours=t_night_offsets_hours,
+        precomputed_sun_pts=precomputed_sun_pts,  # <--- Przekazujemy tutaj
     )
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -258,7 +298,7 @@ def compute_raw_data(
 
         with tqdm(
             total=len(missing_data),
-            desc="          Raw compute (missing)",
+            desc="          Raw compute",
             unit="obj",
             ncols=119,
         ) as pbar:
@@ -272,14 +312,18 @@ def compute_raw_data(
                     print(f"[ERROR] Błąd dla {obj_id}: {e}")
                 pbar.update(1)
 
+    # === ZAPIS RAW + HASH ===
     with open(RAW_DATA_PKL, "wb") as f:
         pickle.dump(all_raw_data, f)
-
+    
+    with open(raw_hash_file, "w") as f:
+        f.write(current_raw_hash)
+    
     if VERBOSE:
         print(f"[SAVE] Raw data zapisane do {RAW_DATA_PKL} ({len(all_raw_data)} obiektów).")
+        print(f"[SAVE] RAW hash zapisany: {current_raw_hash[:8]}...")
 
     return all_raw_data
-
 
 # =====================================================
 # ETAP 2: KONWERSJA RAW -> FINAL
@@ -352,10 +396,10 @@ def process_raw_to_final(
 
     return obj_id, results
 
-
 def reprocess_to_final(
     json_path: str,
     all_raw_data: Dict[str, RawObjectData],
+    max_workers: int = None,  # Dodano parametr
 ) -> Tuple[Dict[str, List[Dict]], str]:
     vis = load_vis_data(json_path)
 
@@ -374,9 +418,7 @@ def reprocess_to_final(
     current_params_hash = get_params_hash(obj_min_alt_deg, sun_alt_limit_deg, lat, lon, year)
 
     if VERBOSE:
-        print(f"[INFO] Przeliczanie FINAL: konwersja {len(all_raw_data)} obiektów.")
-        print(f"[INFO] Parametry: minalt={obj_min_alt_deg}°, sunlimit={sun_alt_limit_deg}°.")
-        print(f"[HASH] {current_params_hash}.")
+        print(f"[INFO] Przeliczanie FINAL (Parallel): konwersja {len(all_raw_data)} obiektów.")
 
     days_noon = Time([
         datetime.combine(d.date(), datetime.min.time()) + timedelta(hours=12)
@@ -389,6 +431,7 @@ def reprocess_to_final(
 
     frame_all = AltAz(obstime=obstime_all, location=location)
 
+    # Obliczenia wspólne (wykonywane raz w głównym procesie)
     sun_icrs_all = get_sun(obstime_all)
     sun_alt_all = sun_icrs_all.transform_to(frame_all).alt.deg.reshape(ndays, N_SAMPLES)
 
@@ -397,24 +440,43 @@ def reprocess_to_final(
 
     all_final_data: Dict[str, List[Dict]] = {}
 
-    for obj_id, raw_data in tqdm(
-        all_raw_data.items(),
-        desc="          Reprocess",
-        unit="obj",
-        ncols=119,
-        total=len(all_raw_data)
-    ):
-        obj_id_result, results = process_raw_to_final(
-            raw_data, days, sun_alt_all, moon_alt_all,
-            sun_alt_limit_deg, obj_min_alt_deg, vis,
-        )
-        all_final_data[obj_id_result] = results
+    # Przygotowanie funkcji partial z argumentami stałymi
+    process_final_func = partial(
+        process_raw_to_final,
+        days=days,
+        sun_alt_all=sun_alt_all,
+        moon_alt_all=moon_alt_all,
+        sun_alt_limit_deg=sun_alt_limit_deg,
+        obj_min_alt_deg=obj_min_alt_deg,
+        vis=vis,
+    )
+
+    # Uruchomienie ProcessPoolExecutor
+    # Uwaga: Przekazujemy tylko raw_data jako zmienną, reszta jest w partial
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Tworzymy listę futures
+        futures = {
+            executor.submit(process_final_func, raw_data): raw_data.obj_id 
+            for raw_data in all_raw_data.values()
+        }
+
+        for future in tqdm(
+            as_completed(futures),
+            desc="          Reprocess",
+            unit="obj",
+            ncols=119,
+            total=len(futures)
+        ):
+            try:
+                obj_id_result, results = future.result()
+                all_final_data[obj_id_result] = results
+            except Exception as e:
+                print(f"[ERROR] Błąd w FINAL dla obiektu: {e}")
 
     if VERBOSE:
         print(f"[REPROCESS] ✓ Przetworzono {len(all_final_data)} obiektów.")
 
     return all_final_data, current_params_hash
-
 
 def should_reprocess(json_path: str) -> bool:
     """
@@ -440,7 +502,6 @@ def should_reprocess(json_path: str) -> bool:
     except Exception:
         return True
 
-
 # =====================================================
 # PRZYROSTOWY FINAL CACHE
 # =====================================================
@@ -450,13 +511,14 @@ def get_target_ids_from_vis(vis: Dict[str, Any], object_limit: int) -> List[str]
     ids = [o["id"] for o in objects]
     return ids[:object_limit]
 
-
 def reprocess_missing_final(
     json_path: str,
     all_raw_data: Dict[str, RawObjectData],
     existing_final: Dict[str, List[Dict]],
     target_ids: List[str],
+    max_workers: int = None, # Dodano parametr
 ) -> Tuple[Dict[str, List[Dict]], str]:
+    # ... (kod inicjalizacji zmiennych bez zmian: vis, params, year, location, days) ...
     vis = load_vis_data(json_path)
     params = vis.get("parameters", {})
     obj_min_alt_deg = params.get("minalt", 20.0)
@@ -465,12 +527,12 @@ def reprocess_missing_final(
     lat = vis["location"]["lat"]
     lon = vis["location"]["lon"]
     location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
-
+    
     days = pd.date_range(f"{year}-01-01", f"{year}-12-31", freq="D")
     ndays = len(days)
-
     current_params_hash = get_params_hash(obj_min_alt_deg, sun_alt_limit_deg, lat, lon, year)
 
+    # Obliczenia wspólne Słońca/Księżyca
     days_noon = Time([
         datetime.combine(d.date(), datetime.min.time()) + timedelta(hours=12)
         for d in days
@@ -488,54 +550,55 @@ def reprocess_missing_final(
     existing_ids = set(existing_final.keys())
     missing_ids = [oid for oid in target_ids if oid not in existing_ids]
 
-    if VERBOSE:
-        if missing_ids:
-            print(f"[INFO] Brakujących obiektów w FINAL cache: {len(missing_ids)}.")
-        else:
-            print("[INFO] FINAL cache zawiera wszystkie docelowe obiekty.")
-
     if not missing_ids:
         final_subset = {oid: existing_final[oid] for oid in target_ids if oid in existing_final}
         return final_subset, current_params_hash
 
-    to_process_raw = {
-        oid: all_raw_data[oid]
+    to_process_raw = [
+        all_raw_data[oid]
         for oid in missing_ids
         if oid in all_raw_data
-    }
+    ]
 
     if VERBOSE:
-        print(f"[INFO] Przeliczam FINAL dla {len(to_process_raw)} brakujących obiektów.")
+        print(f"[INFO] Przeliczam FINAL (Parallel) dla {len(to_process_raw)} brakujących obiektów.")
 
     new_final: Dict[str, List[Dict]] = {}
-    for obj_id, raw_data in tqdm(
-        to_process_raw.items(),
-        desc="          Reprocess (missing)",
-        unit="obj",
-        ncols=119,
-        total=len(to_process_raw),
-    ):
-        obj_id_result, results = process_raw_to_final(
-            raw_data,
-            days,
-            sun_alt_all,
-            moon_alt_all,
-            sun_alt_limit_deg,
-            obj_min_alt_deg,
-            vis,
-        )
-        new_final[obj_id_result] = results
+    
+    process_final_func = partial(
+        process_raw_to_final,
+        days=days,
+        sun_alt_all=sun_alt_all,
+        moon_alt_all=moon_alt_all,
+        sun_alt_limit_deg=sun_alt_limit_deg,
+        obj_min_alt_deg=obj_min_alt_deg,
+        vis=vis,
+    )
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_final_func, raw_data): raw_data.obj_id 
+            for raw_data in to_process_raw
+        }
+
+        for future in tqdm(
+            as_completed(futures),
+            desc="       Reprocess",
+            unit="obj",
+            ncols=119,
+            total=len(futures),
+        ):
+             try:
+                obj_id_result, results = future.result()
+                new_final[obj_id_result] = results
+             except Exception as e:
+                 print(f"[ERROR] Błąd w FINAL: {e}")
 
     merged = dict(existing_final)
     merged.update(new_final)
-
     final_subset = {oid: merged[oid] for oid in target_ids if oid in merged}
 
-    if VERBOSE:
-        print(f"[INFO] Łącznie w FINAL (po scaleniu): {len(merged)}. Zwracam subset: {len(final_subset)}.")
-
     return final_subset, current_params_hash
-
 
 # =====================================================
 # GŁÓWNA FUNKCJA
@@ -611,7 +674,7 @@ def run_engine_from_vis_json(
         print(f"[INFO] Lokalizacja: {city_name} ({lat_str}°, {lon_str}°)")
         print(f"[INFO] Rok: {year}")
         print(f"[INFO] Parametry: minimalna wysokość obiektu: {obj_min_alt_deg}°, "
-              f"wysokość słońca pod horyzontem: {sun_alt_limit_deg}°")
+              f"wysokość słońca: {sun_alt_limit_deg}°")
         print(f"[INFO] Cache RAW:   {RAW_DATA_PKL}")
         print(f"[INFO] Cache FINAL: {FINAL_DATA_PKL}")
         print("=" * 119)
@@ -641,7 +704,7 @@ def run_engine_from_vis_json(
     if needs_reprocess or not os.path.exists(FINAL_DATA_PKL):
         if VERBOSE:
             print("[REPROCESS] Parametry/lokalizacja/rok się zmieniły lub brak FINAL cache – pełne przeliczenie FINAL.")
-        all_final_data_full, current_hash = reprocess_to_final(json_path, all_raw_data)
+        all_final_data_full, current_hash = reprocess_to_final(json_path, all_raw_data, max_workers=max_workers)
         all_final_data = {oid: all_final_data_full[oid] for oid in target_ids if oid in all_final_data_full}
         with open(FINAL_DATA_PKL, "wb") as f:
             pickle.dump(all_final_data_full, f)
@@ -656,7 +719,7 @@ def run_engine_from_vis_json(
         with open(FINAL_DATA_PKL, "rb") as f:
             final_cache = pickle.load(f)
         all_final_data, current_hash = reprocess_missing_final(
-            json_path, all_raw_data, final_cache, target_ids
+            json_path, all_raw_data, final_cache, target_ids, max_workers=max_workers
         )
         merged_cache = dict(final_cache)
         merged_cache.update({oid: all_final_data[oid] for oid in all_final_data})
@@ -687,7 +750,6 @@ def run_engine_from_vis_json(
         print("=" * 119)
 
     return all_final_data
-
 
 if __name__ == "__main__":
     import sys
