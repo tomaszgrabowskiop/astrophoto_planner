@@ -55,7 +55,7 @@ pip install pandas numpy astropy astroplan matplotlib reportlab pypdf tqdm astro
 Aby rozpocząć, upewnij się, że posiadasz plik źródłowy dla katalogu NGC. 
 
 - `OpenNGC/NGC.csv` – plik CSV z poszerzonymi o dodatkowe nazwy zwyczajowe danymi OpenNGC (wymagany przez skrypt `0_opracuj_katalog_ngc.py`).
-- Jeżeli chcesz dodać kolejne nazwy zwyczajowe, możesz wyedytować `uzupełnij_openngc_o_common_names` i uruchomić. Powstanie nowy plik `../NGC_updated.csv`, którym możesz zastąpić `OpenNGC/NGC.csv`
+- Jeżeli chcesz dodać kolejne nazwy zwyczajowe, możesz wyedytować `uzupelnij_openngc` i uruchomić. Powstanie nowy plik `NGC_updated.csv`, którym możesz zastąpić `OpenNGC/NGC.csv`
 
 ---
 
