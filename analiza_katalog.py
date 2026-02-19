@@ -77,9 +77,9 @@ def parse_extra_info(extra_info_str):
 # ==================== GŁÓWNA ANALIZA ====================
 
 def analyze_catalog():
-    print("=" * 80)
+    print("=" * 119)
     print("ANALIZA KATALOGU: katalog_astro_full.csv")
-    print("=" * 80)
+    print("=" * 119)
     print()
     
     # Wczytaj katalog
@@ -243,7 +243,7 @@ def analyze_catalog():
         print(f"      - Preferowany:         20-120' (duże, bez cropowania)")
     print()
     
-    print("=" * 80)
+    print("=" * 119)
 
 if __name__ == "__main__":
     analyze_catalog()

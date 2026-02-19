@@ -35,7 +35,7 @@ PRIORITIES = {
 SH2_COMMON_NAMES = {
     "Sh2-101": "Tulip Nebula", "Sh2-103": "Loop", "Sh2-105": "Crescent Nebula",
     "Sh2-108": "Sadr Region", "Sh2-11": "War and Peace Nebula", "Sh2-117": "N American & Pelican Nebula",
-    "Sh2-125": "Cocoon Nebula", "Sh2-129": "Flying Bat Nebula", "Sh2-155": "Cave Nebula",
+    "Sh2-125": "Cocoon Nebula", "Sh2‑126": "Great Lacerta Nebula",  "Sh2-129": "Flying Bat Nebula", "Sh2-155": "Cave Nebula",
     "Sh2-162": "Bubble Nebula", "Sh2-184": "Pac Man Nebula", "Sh2-190": "Heart Nebula",
     "Sh2-197": "Maffei 2", "Sh2-199": "Soul Nebula", "Sh2-220": "California Nebula",
     "Sh2-229": "Flaming Star Nebula", "Sh2-234": "Spider Nebula", "Sh2-237": "Fly Nebula",
@@ -46,7 +46,7 @@ SH2_COMMON_NAMES = {
     "Sh2-277": "Flame Nebula", "Sh2-279": "Running Man Nebula", "Sh2-281": "Orion Nebula",
     "Sh2-292": "Seagull Nebula head", "Sh2-296": "Seagull Nebula wings", "Sh2-298": "Thor's Helmet",
     "Sh2-30": "Trifid Nebula", "Sh2-311": "Skull & Crossbones Nebula", "Sh2-45": "Omega Nebula",
-    "Sh2-49": "Eagle N     ebula", "Sh2-54": "Cauda", "Sh2-6": "Bug Nebula", "Sh2-8": "Cat's Paw Nebula",
+    "Sh2-49": "Eagle Nebula", "Sh2-54": "Cauda", "Sh2-6": "Bug Nebula", "Sh2-8": "Cat's Paw Nebula",
 }
 
 def print_step(msg):
@@ -119,23 +119,23 @@ def process_common_names(text_series):
 
 # === 1. POBIERANIE DANYCH ===
 def fetch_data():
-    print_step("Pobieranie katalogów...")
+    print_step("Pobieranie katalogów")
     
     # NGC/IC z lokalnego pliku
-    print("  > NGC/IC z updated_ngc.csv...")
+    print("       > NGC/IC z updated_ngc.csv")
     df_ngc = pd.read_csv("updated_ngc.csv")
         
     # Konfiguracja Vizier
     v_std = Vizier(row_limit=-1, columns=['**', '_RAJ2000', '_DEJ2000'])
     
     def get_v(cat_id, name):
-        print(f"  > {name} ({cat_id})...")
+        print(f"       > {name} ({cat_id})")
         try:
             cats = v_std.get_catalogs(cat_id)
             df = cats[0].to_pandas() if cats else pd.DataFrame()
             return df
         except Exception:
-            print("    [!] Błąd połączenia.")
+            print("        [!] Błąd połączenia.")
             return pd.DataFrame()
 
     data = {
@@ -149,26 +149,26 @@ def fetch_data():
         "ced": get_v('VII/231', 'Cederblad'),
     }
     
-    print_step("PODSUMOWANIE POBIERANIA:")
+    print(f"\n       PODSUMOWANIE POBIERANIA:")
     total_rows = 0
     for k, v in data.items():
         cnt = len(v)
-        print(f"  - {k.upper():8}: {fmt(cnt):>8} wierszy")
+        print(f"       {k.upper():8}: {fmt(cnt):>8} wierszy")
         total_rows += cnt
-    print("=" * 31)
-    print(f"  Razem: {fmt(total_rows):>12} wierszy")
+    print(" "* 7 + "=" * 26)
+    print(f"       Razem   : {fmt(total_rows):>8} wierszy\n")
     
     return data
 
 # === 2. PEŁNA NORMALIZACJA ===
 def normalize_all(raw):
-    print_step("Normalizacja katalogów (unifikacja kolumn)...")
+    print_step("Normalizacja katalogów (unifikacja kolumn)")
     results = []
 
     # 1. NGC/IC
     if not raw['ngc'].empty:
         df = raw['ngc'].copy()
-        print("  > Normalizacja NGC/IC...")
+        print("       > Normalizacja NGC/IC")
         df['ra'] = pd.to_numeric(df['ra'], errors='coerce')
         df['dec'] = pd.to_numeric(df['dec'], errors='coerce')
         df['catalog'], df['priority'] = 'ngc', PRIORITIES['ngc']
@@ -177,7 +177,7 @@ def normalize_all(raw):
     # 2. SHARPLESS
     df = raw['sh2']
     if not df.empty:
-        print("  > Normalizacja Sharpless...")
+        print("       > Normalizacja Sharpless")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['Sh2'].apply(lambda x: f"Sh2-{int(x)}" if pd.notnull(x) else "")
         df['size'] = pd.to_numeric(df['Diam'], errors='coerce')
@@ -191,7 +191,7 @@ def normalize_all(raw):
     # 3. BARNARD
     df = raw['barn']
     if not df.empty:
-        print("  > Normalizacja Barnard...")
+        print("       > Normalizacja Barnard")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['Barn'].apply(lambda x: f"B{str(x).strip()}")
         df['size'] = pd.to_numeric(df['Diam'], errors='coerce')
@@ -202,7 +202,7 @@ def normalize_all(raw):
     # 4. RCW - POPRAWKA (Używamy MajAxis jako size)
     df = raw['rcw']
     if not df.empty:
-        print("  > Normalizacja RCW...")
+        print("       > Normalizacja RCW")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['RCW'].apply(lambda x: f"RCW{str(x).strip()}")
         # Vizier: MajAxis = Oś wielka (zazwyczaj w minutach dla RCW w VII/216)
@@ -214,7 +214,7 @@ def normalize_all(raw):
     # 5. CEDERBLAD - POPRAWKA (Dim1/2 jako size, vmag jako mag)
     df = raw['ced']
     if not df.empty:
-        print("  > Normalizacja Cederblad...")
+        print("       > Normalizacja Cederblad")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         
         ids = []
@@ -240,7 +240,7 @@ def normalize_all(raw):
     # 6. LBN - (Diam1 jako size)
     df = raw['lbn']
     if not df.empty:
-        print("  > Normalizacja LBN...")
+        print("       > Normalizacja LBN")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['Seq'].apply(lambda x: f"LBN{x}")
         
@@ -254,7 +254,7 @@ def normalize_all(raw):
     # 7. LDN
     df = raw['ldn']
     if not df.empty:
-        print("  > Normalizacja LDN...")
+        print("       > Normalizacja LDN")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['LDN'].apply(lambda x: f"LDN{x}")
         df['size'] = np.sqrt(pd.to_numeric(df['Area'], errors='coerce')) * 60
@@ -265,7 +265,7 @@ def normalize_all(raw):
     # 8. PGC
     df = raw['pgc']
     if not df.empty:
-        print("  > Normalizacja PGC...")
+        print("       > Normalizacja PGC")
         df = convert_ra_dec(df, '_RAJ2000', '_DEJ2000', 'deg')
         df['id'] = df['PGC'].apply(lambda x: f"PGC{int(x)}" if pd.notnull(x) else "")
         
@@ -291,7 +291,7 @@ def normalize_all(raw):
 
 def smart_merge(df, tolerance_deg):
     df = df.dropna(subset=['ra', 'dec']).reset_index(drop=True)
-    print_step(f"Konsolidacja Smart Merge (tolerancja {tolerance_deg*60:.2f} arcmin)...")
+    print_step(f"Konsolidacja Smart Merge (tolerancja {tolerance_deg*60:.2f} arcmin)")
     
     # Budowa grafu sąsiedztwa
     coords = SkyCoord(ra=df['ra'].values * u.deg, dec=df['dec'].values * u.deg)
@@ -365,7 +365,7 @@ def smart_merge(df, tolerance_deg):
 #
 
 def main():
-    print("\n=== GENERATOR KATALOGU ASTRONOMICZNEGO (ENTITY RESOLUTION) ===\n")
+    print(f"\n{"=" * 32} GENERATOR KATALOGU ASTRONOMICZNEGO (ENTITY RESOLUTION) {"=" * 31}\n")
     raw = fetch_data()
     full = normalize_all(raw)
     print_step("KONFIGURACJA")
@@ -373,7 +373,7 @@ def main():
     
     # 1. Tolerancja w minutach z walidacją
     ans = input(
-        f"Tolerancja łączenia obiektów w minutach kątowych (arcmin) "
+        f"       Tolerancja łączenia obiektów w minutach kątowych (arcmin) "
         f"[{RA_DEC_TOLERANCE_ARCMIN}]: "
     ).strip()
     if ans:
@@ -386,11 +386,11 @@ def main():
     tol_deg = RA_DEC_TOLERANCE_ARCMIN / 60.0
 
     # 2. Reszta parametrów
-    ans = input(f"Minimalny rozmiar [{MIN_SIZE_ARCMIN}']: ").strip()
+    ans = input(f"       Minimalny rozmiar [{MIN_SIZE_ARCMIN}']: ").strip()
     if ans:
         MIN_SIZE_ARCMIN = float(ans)
     
-    ans = input(f"Maksymalna jasność [{MAX_MAG}]: ").strip()
+    ans = input(f"       Minimalna jasność [{MAX_MAG}]: ").strip()
     if ans:
         MAX_MAG = float(ans)
 
@@ -406,8 +406,8 @@ def main():
     )
     
     df_clean = df_work[~mask_trash]
-    print_step(f"Odrzucono {fmt(mask_trash.sum())} obiektów (Mag > {TRASH_MAG} lub Size < {TRASH_SIZE}').")
-    print_step(f"Do Smart Merge trafia: {fmt(len(df_clean))} obiektów.")
+    print(f"       Odrzucono {fmt(mask_trash.sum())} obiektów (Mag > {TRASH_MAG} lub Size < {TRASH_SIZE}').")
+    print(f"       Do Smart Merge trafia: {fmt(len(df_clean))} obiektów.")
 
     # SMART MERGE (Na przefiltrowanych danych)
     final = smart_merge(df_clean, tol_deg) 
@@ -420,11 +420,11 @@ def main():
     final[cols].to_csv(OUTPUT_FILENAME, index=False)
     print_step(f"ZAPISAŁEM {fmt(len(final))} OBIEKTÓW.")
     
-    answer = input('\nUruchomić pełną analizę katalogu? [y/n] (domyślnie y): ').strip().lower()
+    answer = input('\n       Uruchomić pełną analizę katalogu? [y/n] (domyślnie y): ').strip().lower()
     if answer in ["y", ""]:
         analyze_catalog()
     else:
-        print("Pominięto analizę.")
+        print_step("Pominięto analizę.")
 
 if __name__ == "__main__":
     main()
