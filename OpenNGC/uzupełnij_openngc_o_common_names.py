@@ -2,20 +2,31 @@ import pandas as pd
 import numpy as np
 
 # Ścieżka do pliku
-input_file = 'OpenNGC/NGC.csv'
-output_file = 'OpenNGC/NGC_updated.csv'
+input_file = 'NGC.csv'
+output_file = '../NGC_updated.csv'
 
 # Mapa common names
 common_names_map = {
+    'NGC0188': 'North Celestial Pole Cluster',
+    'NGC1333': 'Embryo Nebula',
     'NGC1746': 'Cluster of Clusters',
+    'NGC1788': 'Cosmic Bat Nebula',
+    'NGC1960': 'Pinwheel Cluster',
     'NGC2168': 'Shoe-Buckle Cluster',
+    'NGC2170': 'Angel Nebula',
+    'NGC2682': 'King Cobra Cluster',
+    'NGC5457': 'Pinwheel Galaxy',
+    'NGC7078': 'Great Pegasus Cluster',
     'NGC7092': 'Pyramid Cluster',
     'NGC7380': 'Wizard Nebula',
-    'NGC1333': 'Embryo Nebula',
-    'NGC2170': 'Angel Nebula',
+    'NGC7822': "Question Mark Nebula",
+    'IC0423': 'Tear Drop Nebula',
+    'IC0446': 'Coyote Cloud',
     'IC0447': "Dreyer's Nebula",
     'IC1396': "Elephant's Trunk Nebula",
-    'NGC7822': "Question Mark Nebula",
+    'IC1613': 'Cetus Dwarf Galaxy',
+    'IC4665': 'Summer Beehive Cluster',
+    'IC4756': 'Graff’s Cluster',
 }
 
 # Wczytaj CSV – NIC nie kombinujemy z sep/kodowaniem poza tym co już było
