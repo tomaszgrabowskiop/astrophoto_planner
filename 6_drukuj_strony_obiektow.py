@@ -1,10 +1,13 @@
 import pandas as pd
+from typing import List
 import numpy as np
 import pickle
 from datetime import datetime, timedelta
 import os
 import json
 import math
+import re
+
 
 from astropy.coordinates import SkyCoord, AltAz, EarthLocation, get_sun, get_body
 from astropy.time import Time
@@ -100,7 +103,7 @@ TYPE_NAMES = {
             "Other": "Inny",
             "NonEx": "Nieistniejący",
         }
-
+PRIORITY_MAP = {'ngc': 9, 'ic': 8, 'sh2': 7, 'rcw': 6, 'lbn': 5, 'ced': 4, 'pgc': 3, 'barn': 2, 'ldn': 1}
 # Rozmiar strony i marginesy (A4) – w cm
 CM_PER_INCH = 2.54
 PAGE_W_CM = 21.0
@@ -157,21 +160,96 @@ def get_image_extent(img):
     h, w = img.shape[:2]
     return [0, w / h, 0, 1]
 
-def format_indeksy(extra_info: str, max_items: int = 7, max_chars: int = 45) -> str:
-    """Jedna linia: bierze max_items, skraca do max_chars."""
+def _extract_famous_labels(extra_info: str) -> List[str]:
+    """
+    Zwraca listę etykiet typu 'M33', 'C20', 'H400' znalezionych w extra_info.
+    Zakłada, że identyfikatory są rozdzielone przecinkami.
+    """
+    if not extra_info:
+        return []
+
+    labels: List[str] = []
+    tokens = [t.strip() for t in str(extra_info).split(",") if t.strip()]
+
+    for token in tokens:
+        t = token.strip().upper()
+        if len(t) < 2:
+            continue
+
+        prefix = t[0]
+        rest = t[1:].strip()
+
+        if prefix not in ("M", "C", "H"):
+            continue
+        if not rest.isdigit():
+            continue
+
+        # normalizujemy: "M 33" -> "M33"
+        label = f"{prefix}{int(rest)}"
+        labels.append(label)
+
+    # usuwamy duplikaty, zachowując kolejność
+    seen = set()
+    unique_labels = []
+    for lab in labels:
+        if lab not in seen:
+            seen.add(lab)
+            unique_labels.append(lab)
+    return unique_labels
+
+def format_indeksy(extra_info: str, max_items: int = 24, max_chars: int = 65, max_lines: int = 3) -> str:
+    """Usuwa słynne (M/C/H), sortuje resztę wg PRIORITY_MAP."""
     if not extra_info:
         return 'brak'
     
-    items = [item.strip() for item in extra_info.split(',') if item.strip()]
-    short_items = items[:max_items]  # Tylko pierwsze max_items
+    # 1. Wyciągnij i USUŃ słynne
+    famous = set(_extract_famous_labels(extra_info))  # set dla szybkiego lookup
     
-    line = ', '.join(short_items)
-    if len(line) > max_chars:
-        line = line[:max_chars-3] + '...'
+    # 2. Filtruj items: pomiń słynne
+    items = [item.strip() for item in extra_info.split(',') if item.strip() not in famous]
     
-    return line
-
-
+    # 3. Sortuj wg PRIORITY_MAP (malejąco prio, rosnąco alfabetycznie)
+    def get_priority(item: str) -> tuple:
+        key = item.strip().lower()
+    
+        # specjalny przypadek: chcesz dokładnie 'sh2'
+        if key.startswith("sh2"):
+            prefix = "sh2"
+        else:
+            # katalog = same litery na początku: 'ic' z 'ic1795', 'ced' z 'ced6a'
+            m = re.match(r"[a-z]+", key)
+            prefix = m.group(0) if m else key[:3]
+    
+        prio = PRIORITY_MAP.get(prefix, 0)
+        return (-prio, prefix, key)
+    
+    items.sort(key=get_priority)
+    
+    # 4. Weź max_items i podziel na linie jeśli jest ich więcej niż max_items/max_lines
+    short_items = items[:max_items]
+    items_per_line = max_items // max_lines
+    indent = " " * 16
+    if len(short_items) <= items_per_line:
+        line = ', '.join(short_items)
+        if len(line) > max_chars:
+            line = line[:max_chars-3] + '...'
+        return line
+    else:
+        lines = []
+        # Podziel na chunki
+        chunks = [short_items[i:i+items_per_line] for i in range(0, len(short_items), items_per_line)]
+        # Iteruj po chunkach z indeksem
+        for i, chunk in enumerate(chunks):
+            line = ', '.join(chunk)
+            # Skróć jeśli za długa
+            if len(line) > max_chars:
+                line = line[:max_chars-3] + '...'          
+            # Dodaj przecinek, jeśli to NIE jest ostatni chunk
+            if i < len(chunks) - 1:
+                line += ','               
+            lines.append(line)
+        return f"\n{indent}".join(lines[:max_lines])
+        
 # --- RYSOWANIE STRONY OBIEKTU ---
   
 def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, tz, best_year_date, best_year_m_hours,):
@@ -181,12 +259,13 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
     obj_type_code = row.get("type", "")
     type_pl = TYPE_NAMES.get(obj_type_code, obj_type_code or "Inny")
     
-    max_len = 20
+    max_len = 40
     raw_name = row.get('common_names') or 'brak'
     short_name = (raw_name[:max_len - 3] + '...') if len(raw_name) > max_len else raw_name
-    line = f"| Nazwa zwyczajowa: {short_name} |\n"
+    name_display = row.get('name', oid)
+    #line = f"| Nazwa zwyczajowa: {short_name} |\n"
 
-    indeksy_short = format_indeksy(row.get('extra_info', ''), max_items=7, max_chars=45)
+    indeksy_short = format_indeksy(row.get('extra_info', ''), max_items=24, max_chars=66)
         
     ra_rounded = round(float(row['ra']), 2)  
     dec_rounded = round(float(row['dec']), 2) 
@@ -214,15 +293,14 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
     ax_txt.axis("off")
 
     header = (
-        f"{oid}\n"
-        f"|Nazwa: {short_name} | {type_pl}|\n"
+        f"{name_display}\n"
+        f"|Nazwa: {short_name}|\n|Typ: {type_pl}|\n"
         )
 
     ax_txt.text(0, 1.0, header, fontsize=16, fontweight="bold", va="top")
     lorem = (
         f"|Typ: {row.get('type', '')} | RA: {ra_rounded:.2f} | Dec: {dec_rounded:.2f}|\n"
         f"|Rozmiar: {size_rounded:.2f}' | Mag.: {mag_rounded:.2f}|\n"
-        f"|Indeksy: {indeksy_short}|"
     )
     ax_txt.text(
         0,
@@ -233,7 +311,16 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
         linespacing=1.2,
         va="top",
     )
-       
+    indeksy = (f"|Indeksy: {indeksy_short}|")
+    ax_txt.text(
+        0,
+        0.18,
+        indeksy,
+        fontfamily="serif",
+        fontsize=10,
+        linespacing=1.2,
+        va="top",
+    )
     # 2. Noc nowiu
     ax_nm = fig.add_subplot(gs[1, 0])
 
@@ -479,7 +566,6 @@ def draw_object_page(pdf, oid, month, nm_day, row, all_data, camera, page_num, t
     pdf.savefig(fig, dpi=600)
     plt.close()
 
-
 # --- Strony z mapami kontekstowymi ---
 
 def draw_context_page(pdf, oid, page_num):
@@ -557,7 +643,7 @@ def main():
 
     # sortowanie alfabetyczne po ID
     df = df.sort_values("id")
-    #df = df.head(1) # Włącz dla debugowania po jednym lub wybranej liczbie obiektów
+    #df = df.iloc[30:34] # Włącz zakres obiektów do opracowania, indeksy są od 0
 
     output_name = f"Astrophotography_Planner_{YEAR}_2.pdf"
     with PdfPages(output_name) as pdf:
@@ -597,12 +683,12 @@ def main():
                     best_year_m_hours = 0.0
             
             # KROK 1: Aktualizacja opisu paska i generowanie sekcji
-            pbar.set_description(f"       Generowanie FOV: {oid}")
+            pbar.set_description(f"       Generowanie PAGE: {oid}")
             draw_object_page(pdf, oid, month, nm_day,  row, all_data, camera, page_num,  tz,  best_year_date, best_year_m_hours,)
             page_num += 1
     
             # KROK 2: Aktualizacja opisu paska i generowanie mapy
-            pbar.set_description(f"       Generowanie MAP: {oid}")
+            pbar.set_description(f"       Generowanie CMAP: {oid}")
             draw_context_page(pdf, oid, page_num)
             page_num += 1
 

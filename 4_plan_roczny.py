@@ -110,7 +110,7 @@ MONTH_NAMES_PL = {
 
 @dataclass
 class MonthlyAssignment:
-    """Przypisania obiektów do miesięcy dla jednego wariantu (bloku 36 obiektów)."""
+    """Przypisania obiektów do miesięcy dla jednego wariantu."""
     variant_name: str                 # "A", "B", "C", ...
     month_to_objects: Dict[int, List[str]]  # month -> [obj_id, ...]
 
