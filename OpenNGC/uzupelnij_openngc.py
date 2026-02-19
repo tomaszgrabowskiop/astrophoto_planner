@@ -3,7 +3,7 @@ import numpy as np
 
 # Ścieżka do pliku
 input_file = 'NGC.csv'
-output_file = '../NGC_updated.csv'
+output_file = 'NGC_updated.csv'
 
 # Mapa common names
 common_names_map = {
@@ -28,14 +28,15 @@ common_names_map = {
     'IC4665': 'Summer Beehive Cluster',
     'IC4756': 'Graff’s Cluster',
 }
-
+# Mapa numerów Messiera
+messier_map = {
+    "NGC1432": "45"
+}
 # Wczytaj CSV – NIC nie kombinujemy z sep/kodowaniem poza tym co już było
 df = pd.read_csv(input_file, sep=';', encoding='utf-8', low_memory=False)
 
 # --- KLUCZOWA CZĘŚĆ: napraw kolumnę z Messierem po wczytaniu ---
 
-# Załóżmy, że kolumna z numerem Messiera nazywa się np. 'M' (dostosuj NAZWĘ!)
-# Jeśli nazywa się inaczej (np. 'Messier', 'M_ID'), popraw nazwę niżej.
 M_COL = 'M'   # <- tu wpisz prawdziwą nazwę kolumny z numerem Messiera
 
 if M_COL in df.columns:
@@ -53,14 +54,14 @@ if M_COL in df.columns:
             return ""
 
     df[M_COL] = df[M_COL].apply(normalize_m_id)
-
-# --- Uzupełnij kolumnę "Common names" jak wcześniej ---
-
+df[M_COL] = df['Name'].map(messier_map).fillna(df[M_COL])
 df['Common names'] = df['Name'].map(common_names_map).fillna(df['Common names'])
 
-# Zapisz – ważne: niech separator i encoding pozostaną takie, jak wymaga Twój pipeline
+# Zapisz
 df.to_csv(output_file, sep=';', index=False, encoding='utf-8')
 
 print("Zaktualizowano:", output_file)
-print("Zmienione:")
+print("\nZmienione common names:")
 print(df[df['Name'].isin(common_names_map.keys())][['Name', 'Common names']])
+print("\nZmienione numery Messiera:")
+print(df[df['Name'].isin(messier_map.keys())][['Name', M_COL]])
