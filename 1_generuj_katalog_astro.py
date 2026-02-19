@@ -33,9 +33,11 @@ PRIORITIES = {
     'ldn': 8            
 }
 SH2_COMMON_NAMES = {
+    "Sh2-25": "The Lagoon Nebula",
     "Sh2-101": "Tulip Nebula", "Sh2-103": "Loop", "Sh2-105": "Crescent Nebula",
     "Sh2-108": "Sadr Region", "Sh2-11": "War and Peace Nebula", "Sh2-117": "N American & Pelican Nebula",
-    "Sh2-125": "Cocoon Nebula", "Sh2‑126": "Great Lacerta Nebula",  "Sh2-129": "Flying Bat Nebula", "Sh2-155": "Cave Nebula",
+    "Sh2-125": "Cocoon Nebula", "Sh2‑126": "Great Lacerta Nebula",  "Sh2-129": "Flying Bat Nebula", 
+    "Sh2-136": "Ghost Nebula", "Sh2-155": "Cave Nebula",
     "Sh2-162": "Bubble Nebula", "Sh2-184": "Pac Man Nebula", "Sh2-190": "Heart Nebula",
     "Sh2-197": "Maffei 2", "Sh2-199": "Soul Nebula", "Sh2-220": "California Nebula",
     "Sh2-229": "Flaming Star Nebula", "Sh2-234": "Spider Nebula", "Sh2-237": "Fly Nebula",
