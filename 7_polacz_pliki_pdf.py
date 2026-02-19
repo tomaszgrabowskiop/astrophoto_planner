@@ -157,14 +157,27 @@ c2.setFont('DejaVu', 10)
 c2.setFillColor('black')
 
 info_text = """
-Strony z wykresami miesięcznymi przedstawiają obiekty przypisane do wariantów 
-na dany miesiąc. Prezentowana jest noc nowiu.
+Strony z wykresami miesięcznymi przedstawiają obiekty przypisane do wariantów na 
+dany miesiąc. Prezentowana jest noc nowiu. Dlatego nie każdy obiekt na tych wykre-
+sach spełnia warunek minimalnego okna obserwacji. Należy odszukać go na stronie 
+jemu poświęconej i tam sprawdzić, która noc w danym miesiącu pozwala wykorzystać
+okno obserwacji.
 
-Dlatego nie każdy obiekt na tych wykresach spełnia warunek minimalnego okna 
-obserwacji. Należy odszukać go na stronie jemu poświęconej i tam sprawdzić, 
-która noc w danym miesiącu pozwala wykorzystać okno obserwacji.
+Dane typu: RA, Dec, size, mag są wynikiem automatycznego agregowania wielu obiek- 
+tów z kadru. Dlatego mogą się nieco różnić od tego, co znajdziesz w innych atlasach. 
+Różnica jednak nie powinna być znacząca.
 
-Wszelkie sugestie zmian mile widziane.
+Nazwa obiektu i nazwa zwyczajowa to również efekt łączenia różnych rekordów z ka-
+talogów astronomicznych. Dlatego ich wzajemna adekwatność może czasem być 
+umowna. Ale obiekt opisany przez jedną lub drugą nazwę z pewnością jest w kadrze.
+
+Indeksy to obiekty, których wpisy zostały połączone w tym kadrze. Ich liczba jest 
+zmienna, a tu została ograniczona do pierwszych 24. Ich kolejność odzwierciedla 
+popularność katalogu. Stąd najpierw są NGC, IC, Sh2, a później pozostałe. 
+
+
+
+Wszelkie sugestie zmian i poprawek mile widziane.
 Podziel się swoją opinią: morus@dominikanie.pl. 
 """
 
