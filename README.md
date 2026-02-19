@@ -21,7 +21,7 @@ System **pobiera dane** z katalogów astronomicznych, **filtruje** je pod kątem
 
 ![Widok propozycji miesięcznych](doc/Planner_roczny.png)
 
-2. Szczegółowe strony dla każdego obiektu (wykresy wysokości, kadry FOV, widoczność w ciągu roku, moce z i bez Księżyca, mapy kontekstowe). 
+2. Szczegółowe strony dla każdego obiektu (wykres wysokości, kadr FOV, widoczność w ciągu roku, noce z/bez Księżyca, mapa kontekstowa). 
 
 ![Strona obiektu](doc/Strona_obiektu.png)
 
