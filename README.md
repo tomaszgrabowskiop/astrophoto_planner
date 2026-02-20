@@ -33,7 +33,7 @@ System **pobiera dane** z katalogów astronomicznych, **filtruje** je pod kątem
 - **Inteligentne filtrowanie**: wybiera obiekty na podstawie roku, szerokości geograficznej, długości okna obserwacyjnego, minimalnej wysokości obiektu nad horyzontem, określenia zmierzchu, jasności (Mag), rozmiaru (Size) oraz skali Bortle i ewentualności używania filtrów wąskopasmowych.
 - **Symulacja FOV**: generuje symulacje kadru (Field of View) dla kamery i teleskopu przy użyciu biblioteki `starplot`.
 - **Mapa kontekstowa** dająca szersze pole widzenia obiektu na niebie. Mapy wykorzystują różną projekcję w zależności od wysokosci obiektu.
-- **Obliczenia astronomiczne**: wylicza widoczność w ciągu roku w zależności od podanego progu zmierzchu i długości okna obserwacyjnego; widoczność w skali roku, godziny z/bez Księżyca, wysokość górowania w przykładowej nocy na tle zmierzchu i wschodu (cywilnych, żeglarskich i astronomicznych). 
+- **Obliczenia astronomiczne**: wylicza widoczność w ciągu roku w zależności od podanego progu zmierzchu i długości okna obserwacyjnego; w skali roku prezentuje godziny z/bez Księżyca oraz wysokość górowania w przykładowej nocy (najlepsza noc w miesiącu, do którego został przypisany obiekt) na tle zmierzchu i wschodu (cywilnych, żeglarskich i astronomicznych). 
 - Format PDF: generuje gotowy do druku atlas w formacie A4. 
 
 ---
@@ -191,6 +191,8 @@ python 7_polacz_pliki_pdf.py
 Projekt do użytku własnego. Korzysta z danych OpenNGC oraz serwisów VizieR.
 
 [OpenNGC](https://github.com/mattiaverga/OpenNGC/tree/master) to osobny projekt częściowo wykorzystywany w tym repozytorium.
+
+Nie jestem ani programistą ani astronomem. Programy są wynikiem vibecoding. Można powiedzieć, że pomogłem AI w ich napisaniu ;-)
 
 ---
 
