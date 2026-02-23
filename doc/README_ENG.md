@@ -56,7 +56,7 @@ Performs precise astronomical calculations using **AstroPy**. This is the most t
 *   **Window Calculation:** Accounts for:
     *   Twilight (Astronomical/Nautical).
     *   Moon Phase & Position (excludes times when the Moon interferes).
-    *   Hardware limits (horizon obstructions).
+    *   Hardware limits: object over (deg) and Sun uder (6°, 12°, 18° or other).
 *   **Imaging Hours:** Sums up total quality imaging hours per year.
 
 *   *Performance:* Uses Multiprocessing and caches results (`observing_data.pkl`) to speed up subsequent runs.
