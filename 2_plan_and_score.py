@@ -435,13 +435,12 @@ def compute_max_altitude(lat: float, dec: float) -> float:
 # =====================================================
 # USER INTERFACE / MANAGERS
 # =====================================================
-
-class YearManager:
-    def select_interactive(self) -> int:
+class SessionConfigManager:
+    def select_interactive(self) -> Tuple[int, Dict[str, Any]]:
+        print_green("\n" + "=" * 119)
+        print_green("KROK 1: WYBÓR ROKU I LOKALIZACJI")
+        print_green("=" * 119)
         current_year = date.today().year
-        print("\n" + "=" * 119)
-        print("ROK OBSERWACJI")
-        print("=" * 119)
         year_str = input(
             f"Enter current year lub wpisz wybrany pomiędzy 2000 a 2100 "
             f"(Enter = {current_year}): "
@@ -459,13 +458,8 @@ class YearManager:
             year = current_year
             
         print(f"Rok: {year}")
-        return year
 
-class LocationManager:
-    def select_interactive(self) -> Dict[str, Any]:
-        print_green("\n" + "=" * 119)
-        print_green("KROK 1: WYBÓR LOKALIZACJI")
-        print_green("=" * 119)
+        print_step("Wybierz opcję lub wpisz własne miejsce:")
         print("1. Poznań, Polska")
         print("2. Kraków, Polska")
         print("3. Wpisz lokalizację")
@@ -474,18 +468,18 @@ class LocationManager:
         if choice == "1":
             loc = {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
             print(f"Wybrano {loc['name']} ({loc['lat']}N, {loc['lon']}E)")
-            return loc
+            return year, loc
             
         if choice == "2":
             loc = {"lat": 50.0647, "lon": 19.9450, "tz": "Europe/Warsaw", "name": "Kraków, Polska"}
             print(f"Wybrano {loc['name']} ({loc['lat']}N, {loc['lon']}E)")
-            return loc
+            return year, loc
             
         city = input("Podaj lokalizację (pisz wielką literą, działa lepiej, np. 'Toruń, Polska'): ").strip()
         if not city:
             print("Brak nazwy, używam domyślnej: Poznań.")
-            return {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
-            
+            loc = {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
+            return year, loc
         try:
             print(f"[INFO] Szukanie współrzędnych dla '{city}'...")
             loc_astro = EarthLocation.of_address(city)
@@ -499,11 +493,12 @@ class LocationManager:
                 
             loc = {"lat": lat, "lon": lon, "tz": tz_name, "name": city}
             print(f"[INFO] Znaleziono: {loc['name']} {loc['lat']:.4f}N, {loc['lon']:.4f}E, strefa czasowa: {tz_name}")
-            return loc
+            return year, loc
             
         except Exception as e:
             print(f"Błąd geokodowania ({e}), używam Poznań.")
-            return {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
+            loc = {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
+            return year, loc
 
 def get_user_prefs() -> Dict[str, Any]:
     cam = CameraConfig()
@@ -886,8 +881,7 @@ def main():
     # ---------------------------------------------------------
     # 1. SETUP UX / WYBÓR PARAMETRÓW
     # ---------------------------------------------------------
-    year = YearManager().select_interactive()
-    loc = LocationManager().select_interactive()
+    year, loc = SessionConfigManager().select_interactive()
     params = get_user_prefs()
 
     # ---------------------------------------------------------
