@@ -3,10 +3,18 @@
 # 7_generate_result_pdf.py  –  Astrophotography Planner  |  Etap 7: Tworzenie Plannera w PDF
 # =============================================================================
 """
-Etap po wygenerowaniu dwóch składowych plików PDF.
-1) wczytuje vis_data.json,
-3) dodanie strony tytułowej i informacji, 
-2) tworzenie pdf z Astrophotography Planner na dany rok.
+Krok 7: Finalizacja (PDF Merger).
+
+Skrypt końcowy, który scala wszystkie przygotowane wcześniej komponenty w jeden profesjonalny dokument.
+
+Zadania:
+1. Generowanie stron tytułowych i informacyjnych (legenda, parametry lokalizacji).
+2. Dodanie kalendarza rocznego/miesięcznego z podziałem na warianty.
+3. Dołączenie  kart obiektów wygenerowanych w kroku 6 w kolejności alfabetycznej.
+4. Zapisanie finalnego pliku PDF gotowego do druku.
+
+Wyjście:
+- Plik: Astrophotography_Planner_[ROK]_[MIASTO].pdf
 """
 
 import json

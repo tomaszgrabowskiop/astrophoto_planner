@@ -2,7 +2,27 @@
 # =============================================================================
 # 2_plan_and_score.py  –  Astrophotography Planner  |  Etap 2: Planowanie i scoring
 # =============================================================================
+"""
+Krok 2: Konfiguracja sesji i system punktacji (Scoring).
 
+Ten skrypt pełni dwie kluczowe funkcje: interfejsu konfiguracyjnego oraz silnika oceniającego atrakcyjność obiektów.
+
+Działanie:
+1. Konfiguracja (Interaktywna):
+   - Użytkownik podaje rok planowania, lokalizację (City/Lat/Lon).
+   - Definiuje sprzęt (Kamera/Teleskop) - kluczowe dla obliczeń FOV.
+   - Określa warunki brzegowe: minimalna wysokość obiektu, poziom zanieczyszczenia światłem (Bortle), filtry.
+
+2. Scoring (Punktacja):
+   - Każdy obiekt z katalogu otrzymuje punkty w oparciu o algorytm uwzględniający:
+     * Typ obiektu vs Filtry (np. mgławice emisyjne premiowane przy filtrach narrowband).
+     * Jasność powierzchniową i rozmiar.
+     * Przynależność do list "The Best of" (Messier, Caldwell, Herschel 400).
+     * Warunki lokalne (Bortle).
+
+Wyjście:
+- Plik: vis_data.json (zawiera obiekty z przypisanymi punktami i pełną konfigurację użytkownika).
+"""
 import numpy as np
 import pandas as pd
 import pytz

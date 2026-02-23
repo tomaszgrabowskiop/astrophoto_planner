@@ -1,4 +1,24 @@
 #!/usr/bin/env python3
+"""
+Krok 1: Budowa i agregacja katalogu astronomicznego.
+
+Skrypt ten odpowiada za przygotowanie głównej, surowej bazy danych obiektów ('katalog_astro_full.csv').
+
+Główne zadania skryptu:
+1. Wczytanie bazowej listy obiektów (domyślnie OpenNGC z pliku data/NGC.csv).
+2. Pobranie uzupełniających danych z serwisu VizieR dla katalogów specjalistycznych
+   (Sharpless, Barnard, LDN, LBN, RCW, Cederblad itp.).
+3. Normalizacja danych: ujednolicenie jednostek, formatów współrzędnych i nazw.
+4. Entity Resolution: Inteligentne łączenie duplikatów (np. rozpoznanie, że NGC 1499 i Sh2-220 to ten sam obiekt).
+5. Wstępne filtrowanie: Interaktywne odrzucenie obiektów zbyt małych lub zbyt słabych (wg preferencji użytkownika).
+
+Wymagania:
+- Aktywne połączenie z internetem (do zapytań VizieR).
+- Plik wejściowy: data/NGC.csv
+
+Wyjście:
+- Plik: data/katalog_astro_full.csv (baza gotowa do scoringu).
+"""
 import re                              
 import warnings
 import numpy as np

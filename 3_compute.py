@@ -2,7 +2,28 @@
 # =============================================================================
 # 3_compute.py  –  Astrophotography Planner  |  Etap 3: Obliczenia astronomiczne
 # =============================================================================
+"""
+Krok 3: Silnik obliczeń astronomicznych (Compute Engine).
 
+Najbardziej czasochłonny etap procesu generowania planera. Wykorzystuje bibliotekę AstroPy
+do precyzyjnych obliczeń mechaniki nieba dla Twojej konkretnej lokalizacji.
+
+Główne obliczenia:
+1. Wyznaczenie widoczności: Dla każdego obiektu liczona jest jego wysokość nad horyzontem
+   dla każdej nocy w roku (z dokładnością minutową lub zgodną z siatką).
+2. Analiza okien obserwacyjnych:
+   - Uwzględnia zmierzch (Astronomiczny/Nautyczny/Cywilny).
+   - Uwzględnia fazę i pozycję Księżyca (wyklucza czas, gdy Księżyc przeszkadza).
+   - Uwzględnia limity sprzętowe (minimalna wysokość nad horyzontem).
+3. Obliczenie sumarycznych "Jakościowych Godzin" (Imaging Hours) dla każdego obiektu w skali roku.
+
+Optymalizacja:
+- Skrypt wykorzystuje Multiprocessing (wszystkie rdzenie CPU).
+- Wyniki są cache'owane w pliku 'observing_data.pkl'. Ponowne uruchomienie bez zmiany lokalizacji/roku  jest znacznie szybsze.
+
+Wyjście:
+- Aktualizacja cache i danych w pamięci dla kolejnych kroków.
+"""
 import json
 import pickle
 import hashlib

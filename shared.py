@@ -1,4 +1,19 @@
 # shared.py
+"""
+Moduł konfiguracji współdzielonej (Shared Configuration).
+
+Ten plik pełni rolę centralnego magazynu ustawień dla całego projektu Astrophotography Planner.
+Zawiera:
+1. PATHS: Ścieżki do plików wejściowych, wynikowych i tymczasowych.
+2. Klasy konfiguracyjne:
+   - UserConfig: Przechowuje preferencje użytkownika (lokalizacja, rok).
+   - CameraConfig: Przechowuje parametry sprzętu (ogniskowa, rozmiar sensora).
+3. Stałe astronomiczne i systemowe: Priorytety katalogów, definicje kolorów, stałe fizyczne.
+
+UWAGA DLA DEVELOPERÓW:
+Zmienne zdefiniowane w tym pliku są importowane przez wszystkie pozostałe skrypty (kroki 1-7).
+Zmiana nazwy klucza w słowniku PATHS lub atrybutu w klasie Config wymaga aktualizacji w całym projekcie.
+"""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path

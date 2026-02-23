@@ -3,10 +3,21 @@
 # 5_generate_fov_ctx.py  –  Astrophotography Planner  |  Etap 5: Tworzenie kadrów FOV i map kontekstowych
 # =============================================================================
 """
-Etap po zrobieniu wykresów miesięcznych, wtedy tylko te obiekty są rysowane. 
-1) wczytuje vis_data.json,
-2) generuje FOV oraz context map PNG dla obiektów, które mają uzupełnione pole 'selected'
-   – zgodnie z silnikami OpticMapEngine/ContextMapEngine
+Krok 5: Generator map nieba (Starplot Generator) i FOV z obiektem.
+
+Skrypt automatycznie tworzy grafiki poglądowe dla każdego obiektu wybranego w Kroku 4.
+Korzysta z biblioteki `starplot` oraz danych z VizieR.
+
+Generowane typy map:
+1. FOV (Field of View): Symulacja kadru Twojej kamery.
+   - Pokazuje, jak obiekt ułoży się na matrycy.
+   - Oznacza inne obiekty głębokiego nieba widoczne w tym samym kadrze.
+2. Context (Mapa kontekstowa): Mapa szerszego pola.
+   - Ułatwia odnalezienie rejonu nieba (star hopping).
+   - Dostosowuje projekcję mapy zależnie od deklinacji obiektu.
+
+Wyjście:
+- Pliki PNG zapisywane w katalogu 'data/starplots/'.
 """
 import multiprocessing as mp
 from multiprocessing import Pool

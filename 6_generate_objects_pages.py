@@ -3,9 +3,21 @@
 # 6_generate_objects_pages.py  –  Astrophotography Planner  |  Etap 6: Tworzenie stron obiektów
 # =============================================================================
 """
-Etap po wygenerowaniu wykresów miesięcznych i FOV i CTX dla każdego z obiektów.
-1) wczytuje vis_data.json,
-2) tworzenie pdf z poszczególnymi stronami dla każdego obiektu.
+Krok 6: Generator kart obiektów (Page Renderer).
+
+Skrypt składa szczegółowe strony PDF dla każdego zaplanowanego obiektu, łącząc dane liczbowe z grafikami.
+
+Zawartość generowanej karty:
+- Nagłówek: Nazwy (katalogowe i zwyczajowe), typ obiektu, jasność, rozmiar.
+- Wykresy:
+  * Roczny wykres widoczności (kiedy obiekt jest dostępny).
+  * Wykres wysokości w najlepszą noc miesiąca.
+  * Wykres dostępnych godzin bez Księżyca.
+- Grafiki: Wygenerowane w kroku 5 mapy FOV i Context.
+- Metadane: Informacje o najlepszej nocy w roku, długości okna obserwacyjnego, towarzyszących obiektach w kadrze.
+
+Wyjście:
+- Plik PDF (po dwie strony dla każdego obiektu) w katalogu roboczym.
 """
 import pandas as pd
 from typing import List

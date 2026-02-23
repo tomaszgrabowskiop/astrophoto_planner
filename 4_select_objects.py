@@ -3,21 +3,22 @@
 # 4_select_objects.py  –  Astrophotography Planner  |  Etap 4: Wybór obiektów i plan roczny
 # =============================================================================
 """
-Monthly overview planner:
-- Liczy średnią miesięczną widoczność obiektów (q_hours) z observing_data.pkl.
-- Dzieli obiekty na bloki po 36 (warianty A, B, C, ...).
-- W każdym bloku rozdziela obiekty na 12 miesięcy (maks. 3 obiekty na miesiąc).
-- Generuje PDF: dla każdego miesiąca wykres(y) wysokości obiektów
-  podczas nocy nowiu, osobno dla wariantów A, B, C.
-- zapisuje wybór do vis_data.json: dodaje flagę "selected" z wariantem/miesiącem.
+Krok 4: Selekcja obiektów i optymalizacja harmonogramu (Scheduler).
 
-Wejścia:
-- vis_data.json  (katalog obiektów z polami id, ra, dec, score)
-- observing_data.pkl  (słownik: obj_id -> lista rekordów per dzień z q_hours)
+Skrypt odpowiada za stworzenie rocznego planu obserwacyjnego, rozwiązując problem przydziału zasobów (nocy).
+
+Logika działania:
+1. Podział na grupy: Obiekty dzielone są wg punktacji (powyżej/poniżej mediany).
+2. Algorytm przydziału:
+   - Przypisuje obiekty do miesięcy, w których mają najlepsze warunki widoczności.
+   - Dba o równomierne rozłożenie celów (Sloty A, B, C dla każdego miesiąca).
+   - Priorytetyzuje obiekty rzadkie (widoczne krótko w roku) nad obiektami okołobiegunowymi.
+3. Generowanie raportu wstępnego: Tworzy wykresy rozkładu obiektów i statystyki sukcesu planowania.
 
 Wyjście:
-- AstroPhotography_Planner_1_year_city.pdf
-- zmodyfikowany vis_data.json (dodana flaga selected)
+- Zaktualizowany plik 'vis_data.json' (flaga 'selected' dla wybranych obiektów).
+- Raport ze statystykami planu.
+- PDF z miesięcznymi układami obiektów.
 """
 
 import json
