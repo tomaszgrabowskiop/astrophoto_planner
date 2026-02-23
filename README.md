@@ -2,6 +2,8 @@
 
 Kompleksowy zestaw narzędzi w Pythonie służący do generowania spersonalizowanego, rocznego planera i atlasu. System automatycznie pobiera dane o obiektach, filtruje je pod kątem Twojego sprzętu i lokalizacji, oblicza widoczność na przestrzeni roku, rozplanowuje obserwacje, a następnie generuje profesjonalny dokument PDF gotowy do druku.
 
+![Rozkładówka 1](doc/strona_A.png)
+
 ## 🚀 Możliwości
 
 *   **Agregacja danych:** Pobieranie i łączenie katalogów (NGC/IC, Sharpless, Barnard, RCW, PGC, LBN, LDN, Cederblad) z bazy VizieR i OpenNGC.
@@ -9,6 +11,9 @@ Kompleksowy zestaw narzędzi w Pythonie służący do generowania spersonalizowa
 *   **Punktacja (Scoring):** Ocenianie obiektów na podstawie ich rodzaju, jasności, rozmiaru oraz "sławy" (Messier, Caldwell, Herschel 400), a także kompletnosci danych.
 *   **Obliczenia astronomiczne:** Precyzyjne wyliczanie ([AstroPy](https://www.astropy.org)) wysokości nad horyzontem i godzin obserwacyjnych (okno obserwacyjne) dla każdej nocy w roku z uwzględnieniem księżyca oraz zmierzchu (cywilnego, nautycznego i astronomicznego).
 *   **Planowanie roczne:** Wykorzystanie algorytmu optymalizacji (Hungarian Algorithm) do przydzielenia najlepszych obiektów do optymalnych miesięcy obserwacyjnych. Raport na temat powodzenia i niepowodzeń w rozmiwszczaniu obiektów.
+
+![planer na kolejne miesiące](doc/planer_miesieczny.png)
+
 *   **Generowanie map:** Tworzenie symulacji pola widzenia (FOV) oraz map kontekstowych przy użyciu biblioteki `starplot`.
 *   **Output:** Finalny plik PDF zawierający harmonogram roczny, szczegółowe karty obiektów oraz mapy.
 
@@ -52,11 +57,16 @@ python 2_plan_and_score.py
 ```
 *   **Kluczowy etap konfiguracji użytkownika.**
 *   Pyta o: rok, lokalizację (wyszukuje lokalizacji), parametry kamery/teleskopu (do obliczenia FOV), ewentualność używania filtrów _narrowband_, minimalną wysokość obiektu nad horyzontem, określenie wysokości Słońca pod horyzontem, zanieczyszczenie nieba światłem(Bortle). Wszystkie te parametry wpływają na dalesze wyliczenia. W szczególności dobór obiektów (lepsze punktowanie) zależy od tego czy są obiektami widocznymi przy użyciu filtrów i/lub czy ma wpływ Bortle < 5 (przyjąłem taką granicę dla np. ciemnych mgławic).
+
+![](doc/terminal_c.png)
+
 *   Szybkie przeliczenia dla oceny kryteriów. 
 *   Przypisuje punktacje obiektom według kryteriów. 
 *   Prezentuje tabelę z wynikami. 
-*   Zapisuje wynik w `vis_data.json`.
 
+![](doc/terminal_a.png)
+
+*   Zapisuje wynik w `vis_data.json`.
 ### Krok 3: Obliczenia astronomiczne (Compute Engine)
 ```bash
 python 3_compute.py
@@ -72,7 +82,10 @@ python 4_select_objects.py
 *   Dzieli obiekty na dwie grupy według mediany. 
 *   Najpierw rozmieszcza te powyżej mediany i dopiero jeśli wystarczy slotów, dokłada z obiektów poniżej mediany. 
 *   Dla każdego miesiąca są dostępne trzy warianty (A, B, C). Użytkownik może określić liczbę obiektów w wariancie. 
-*   Algorytm przypisuje obiekty do miesięcy zaczynając od najwyżej punktowanych obiektów, które są najrzadziej widoczne w ciągu roku. Jeżeli obiekt nie spełnia zadanych kryteriów - odpada. Jeśli spełnia trafia w najlepszy (pod względem okna obserwacyjnego) miesiąc, jeśli ten nie ma wolnych slotów, do kolejnego najlepszego i tak do skutku. 
+*   Algorytm przypisuje obiekty do miesięcy zaczynając od najwyżej punktowanych obiektów, które są najrzadziej widoczne w ciągu roku. Jeżeli obiekt nie spełnia zadanych kryteriów - odpada. Jeśli spełnia trafia w najlepszy (pod względem okna obserwacyjnego) miesiąc, jeśli ten nie ma wolnych slotów, do kolejnego najlepszego i tak do skutku.
+
+![](doc/terminal_b.png)
+
 *   Generuje pierwszą część PDF: wykresy zbiorcze na każdy miesiąc. Prezentuje raport po przypisaniu obiektów do miesięcy i wariantów. Oblicza ogólne powodzenie i wskazuje obiekty, które nie trafiły do swojego najlepszego slotu, informuje, do którego slotu trafiły. 
 *   Modyfikuje `vis_data.json` dodając flagę `selected`.
 
@@ -103,6 +116,8 @@ python 7_generate_result_pdf.py
 ```
 *   Dodaje stronę tytułową i informacyjną.
 *   Łączy wszystkie wygenerowane wcześniej PDF-y w jeden kompletny plik: `Astrophotography_Planner_ROK_MIASTO.pdf`.
+
+![](doc/strona_B.PNG)
 
 ---
 
