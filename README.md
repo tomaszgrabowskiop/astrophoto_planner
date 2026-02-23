@@ -1,199 +1,115 @@
-# Astrophotography Planner & Atlas Generator
+# 🔭 Astrophotography Planner & Atlas Generator
 
-Zestaw skryptów w Python służący do generowania spersonalizowanego rocznego planera astronomicznego oraz atlasu obiektów głębokiego nieba (DSO). Dla niezaawansowanych amatorów nieba. Atomatycznie wybiera z bazy 90k+ obiektów te, których parametry określa użytkownik. Obiekty są "rozkładane" na przestrzeni roku tak, żeby stworzyć najbardziej zachłanny plan astrofotograficzny.
-
-[Przykładowy planer](doc/AstroPhotography_Planner_2026_Poznań_compressed.pdf) - tu w wersji skompresowanej - nie jest tak ładny, jak oryginał, ale daje obraz całości.
-
-Możesz wywołać `run.sh`, który założy środowisko i będzie uruchamiał kolejne skrypty. Pozwoli Ci też pominąć wybrane kroki. Nie jest najwygodniejszą formą używania skryptów, ale moze się przydać.
-
-Pełna dokumentacja znajduje się w pliku:
-[Dokumentacja techniczna w formacie md](doc/Dokumentacja_techniczna.md)
-
-**Powodzenia!**
-
----
-
-## Szczegóły działania skryptów
-
-System **pobiera dane** z katalogów astronomicznych, **filtruje** je pod kątem lokalizacji obserwatora i posiadanego sprzętu (teleskop/kamera), **oblicza** precyzyjną widoczność na dany rok, **dystrybuuje** po miesiącach, a następnie generuje profesjonalny plik PDF zawierający: 
-
-1. Przegląd roczny (kiedy obserwować dany obiekt).
-
-![Widok propozycji miesięcznych](doc/Planner_roczny.png)
-
-2. Szczegółowe strony dla każdego obiektu (wykres wysokości, kadr FOV, widoczność w ciągu roku, noce z/bez Księżyca, mapa kontekstowa). 
-
-![Strona obiektu](doc/Strona_obiektu.png)
-
----
+Kompleksowy zestaw narzędzi w Pythonie służący do generowania spersonalizowanego, rocznego planera i atlasu astrofotograficznego. System automatycznie pobiera dane o obiektach, filtruje je pod kątem Twojego sprzętu i lokalizacji, oblicza widoczność na przestrzeni roku, a następnie generuje profesjonalny dokument PDF gotowy do druku.
 
 ## 🚀 Możliwości
 
-- **Agregacja** danych: łączy katalogi NGC/IC, Sharpless (Sh2), RCW, Barnard, LBN, LDN, Cederblad i PGC. 
-- **Inteligentne filtrowanie**: wybiera obiekty na podstawie roku, szerokości geograficznej, długości okna obserwacyjnego, minimalnej wysokości obiektu nad horyzontem, określenia zmierzchu, jasności (Mag), rozmiaru (Size) oraz skali Bortle i ewentualności używania filtrów wąskopasmowych.
-- **Symulacja FOV**: generuje symulacje kadru (Field of View) dla kamery i teleskopu przy użyciu biblioteki `starplot`.
-- **Mapa kontekstowa** dająca szersze pole widzenia obiektu na niebie. Mapy wykorzystują różną projekcję w zależności od wysokosci obiektu.
-- **Obliczenia astronomiczne**: wylicza widoczność w ciągu roku w zależności od podanego progu zmierzchu i długości okna obserwacyjnego; w skali roku prezentuje godziny z/bez Księżyca oraz wysokość górowania w przykładowej nocy (najlepsza noc w miesiącu, do którego został przypisany obiekt) na tle zmierzchu i wschodu (cywilnych, żeglarskich i astronomicznych). 
-- Format PDF: generuje gotowy do druku atlas w formacie A4. 
+*   **Agregacja danych:** Pobieranie i łączenie katalogów (NGC/IC, Sharpless, Barnard, RCW, PGC, LBN, LDN, Cederblad) z bazy VizieR i OpenNGC.
+*   **Smart Merge:** Inteligentne łączenie dublujących się obiektów (np. Mgławica Kalifornia jako NGC 1499 i Sh2-220) oraz klastrowanie obiektów mieszczących się w jednym kadrze (FOV).
+*   **Punktacja (Scoring):** Ocenianie obiektów na podstawie ich rodzaju, jasności, rozmiaru oraz "sławy" (Messier, Caldwell, Herschel 400).
+*   **Obliczenia astronomiczne:** Precyzyjne wyliczanie wysokości nad horyzontem i godzin obserwacyjnych dla każdej nocy w roku z uwzględnieniem faz księżyca i zanieczyszczenia światłem (Bortle).
+*   **Planowanie roczne:** Wykorzystanie algorytmu optymalizacji (Hungarian Algorithm) do przydzielenia najlepszych obiektów do optymalnych miesięcy obserwacyjnych.
+*   **Generowanie map:** Tworzenie symulacji pola widzenia (FOV) oraz map kontekstowych (star hopping) przy użyciu biblioteki `starplot`.
+*   **Output:** Finalny plik PDF zawierający harmonogram roczny, szczegółowe karty obiektów oraz mapy.
 
----
+## 🛠️ Wymagania i Instalacja
 
-## 🛠️ Wymagania
+Projekt wymaga Pythona 3.10+ oraz szeregu bibliotek astronomicznych i graficznych.
 
-Projekt wymaga Pythona 3.10+ oraz następujących bibliotek: 
+1.  **Sklonuj repozytorium:**
+    ```bash
+    git clone https://github.com/twoje-konto/astro-planner.git
+    cd astro-planner
+    ```
 
+2.  **Zainstaluj zależności:**
+    Zaleca się użycie wirtualnego środowiska (venv).
+    ```bash
+    pip install -r requirements.txt
+    ```
+    *Główne biblioteki to: `astropy`, `astroplan`, `starplot`, `pandas`, `matplotlib`, `reportlab`, `networkx`.*
+    
+    **UWAGA: pandas musi być poniżej wersji 3.0!**
+
+3.  **Przygotowanie danych:**
+    Upewnij się, że w folderze `data/` znajduje się plik `NGC.csv` (baza OpenNGC), jeśli skrypt go nie pobierze automatycznie.
+
+##Jak używać?
+
+Proces składa się z 7 kroków, które należy uruchamiać sekwencyjnie. Każdy skrypt korzysta z danych wygenerowanych przez poprzedni.
+
+### Krok 1: Budowa katalogu
 ```bash
-pip install pandas numpy astropy astroplan matplotlib reportlab pypdf tqdm astroquery starplot networkx
+python 1_build_catalog.py
 ```
+*   Pobiera dane z VizieR i łączy je w jeden spójny plik CSV (`katalog_astro_full.csv`).
+*   Dokonuje normalizacji nazw, współrzędnych i "Entity Resolution" (łączenie tych samych obiektów z różnych katalogów).
+*   *Interakcja:* Pyta o progi filtrowania (jasność mag, rozmiar kątowy).
 
-**Uwaga:** Biblioteka `starplot` może wymagać dodatkowej konfiguracji (pobrania danych gwiazd). Skrypt pobiera je automatycznie, ale może się okazać, że przy wyborze specyficznych parametrów, będzie trzeba "dociągnąć" coś jeszcze. 
-
----
-
-## 📂 Struktura plików i dane wejściowe
-
-Aby rozpocząć, upewnij się, że posiadasz plik źródłowy dla katalogu NGC. 
-
-- `OpenNGC/NGC.csv` – plik CSV z poszerzonymi o dodatkowe nazwy zwyczajowe danymi OpenNGC (wymagany przez skrypt `0_opracuj_katalog_ngc.py`).
-- Jeżeli chcesz dodać kolejne nazwy zwyczajowe, możesz wyedytować `uzupelnij_openngc` i uruchomić. Powstanie nowy plik `NGC_updated.csv`, którym możesz zastąpić `OpenNGC/NGC.csv`
-
----
-
-## ⚙️ Instrukcja użycia (krok po kroku)
-
-Skrypty są ponumerowane, aby ułatwić zachowanie odpowiedniej kolejności wykonywania operacji. 
-
-### Krok 0: Przygotowanie bazy NGC
-
-Uruchom: 
-
+### Krok 2: Konfiguracja i Scoring
 ```bash
-python 0_opracuj_katalog_ngc.py
+python 2_plan_and_score.py
 ```
+*   **Kluczowy etap konfiguracji użytkownika.**
+*   Pyta o: Rok, Lokalizację (współrzędne), Parametry kamery/teleskopu (do obliczenia FOV), Limity horyzontu i Zanieczyszczenie nieba (Bortle).
+*   Grupuje obiekty w kadry pasujące do Twojego sensora.
+*   Zapisuje wynik w `vis_data.json`.
 
-- Parsuje surowy plik CSV z OpenNGC. 
-- Tworzy plik `updated_ngc.csv`. 
-
-### Krok 1: Pobieranie i unifikacja katalogów
-
-Uruchom: 
-
+### Krok 3: Obliczenia astronomiczne (Compute Engine)
 ```bash
-python 1_generuj_katalog_astro.py
+python 3_compute.py
 ```
+*   Najbardziej czasochłonny etap. Wykorzystuje wielordzeniowość (multiprocessing).
+*   Liczy wysokość obiektów dla każdej nocy w roku.
+*   Cache'uje wyniki w `observing_data.pkl`, aby przy kolejnych uruchomieniach liczyć tylko zmiany.
 
-- Pobiera dane z serwisu VizieR (Sharpless, Barnard, LDN, itp.). 
-- Łączy je z bazą NGC. 
-- Wykonuje „Smart Merge” - łączenie duplikatów i obiektów blisko siebie według oczekiwania użytkownika (zakres od 1 do 60 arcmin).
-- Usuwa "szum" - według kryteriów użytkownika. Obiekty mniejsze niż Size i ciemniejsze niż Mag. (Domyślnie: size mniejszy niż 5' i magnitudo ciemniejsze niż 18)
-- Tworzy plik `katalog_astro_full.csv`. 
-- Opcjonalnie: uruchom `analiza_katalog.py`, aby sprawdzić statystyki bazy. 
-
-### Krok 2: Konfiguracja i selekcja obiektów
-
-Uruchom: 
-
+### Krok 4: Selekcja i Plan roczny
 ```bash
-python 2_ograniczenie_katalogu.py
+python 4_select_objects.py
 ```
-
-- Interaktywny skrypt: pyta o rok, lokalizację, Bortle, parametry teleskopu/kamery, filtry narrowband oraz minimalną wysokość obiektu, próg wysokości słońca, czas trwania okna obserwacyjnego. Pytania o filtry i Bortle służą selekcji obiektów, które warto fotografować bądź na ciemnym niebie, bądź jedynie z filtrami narrowband.
-- Filtruje bazę według parametrów użytkownika i określonego minimalnego rozmiaru i jasnosci dla obiektów. 
-- Tworzy plik `vis_data.json` z kandydatami do atlasu. 
-
-### Krok 3: Silnik obliczeniowy (Engine)
-
-Uruchom: 
-
-```bash
-python 3_wyliczenia.py
-```
-
-- Wykonuje ciężkie obliczenia astronomiczne dzięki AstroPy (równolegle na wielu rdzeniach CPU). To zajmuje czas!
-- Wylicza dokładną widoczność minuta po minucie dla całego roku. 
-- Zapisuje wyniki do `observing_data.pkl`.
-- Możliwe przyrostowe **wywołanie bez powtarzania obliczeń** (sam sprawdza, czy zmieniły się parametry). 
-	- **UWAGA**: Za każdym razem kiedy zostanie uruchomiony `2_ograniczenie_katalogu.py`, skrypt `3_wyliczenia` sprawdza nowe parametry. 
-	- Jeżeli lokalizacja lub rok zostały zmienione, wówczas wszystkie wybrane obiekty są przeliczane ponownie "od zera". 
-	- Jeżeli zmieniły się parametry okna obserwacyjnego, próg zmierzchu, wówczas obliczenia ograniczają się do zmiany maski (trwaja krócej).
-	- Jeżeli w json pojawiły się nowe pozycje, wyliczenia są ograniczone tylko do tych obiektów (o ile nie zmieniła się lokalizacja lub rok).
-- Podjęćie obliczeń tylko w zakresie maski (parametry: wysokość nad horyzontem, długość okna obserwacyhnego, określenie zmierzchu/świtu).
-- Pełne obliczenia dla obiektów, których nie było wcześniej i przy zmianie lokalizacji.  
-
-### Krok 4: Plan roczny i wybór wariantów
-
-Uruchom: 
-
-```bash
-python 4_plan_roczny.py
-```
-
-- Analizuje dane z kroku 3. 
-- Przydziela obiekty do miesięcy (Warianty A, B, C), aby zbalansować sesje obserwacyjne. Użytkownik określa ile obiektów chce przypisać do każdego z wariantów.
-- Generuje **Część** 1 PDF: `Astrophotography_Planner_ROK_1.pdf` (wykresy miesieczne, spis obiektów). 
-- Aktualizuje `vis_data.json` o flagę `selected`. 
+*   Dzieli obiekty na warianty (A, B, C) i przypisuje je do najlepszych miesięcy.
+*   Generuje pierwszą część PDF: wykresy zbiorcze na każdy miesiąc.
+*   Modyfikuje `vis_data.json` dodając flagę `selected`.
 
 ### Krok 5: Generowanie map nieba
-
-Uruchom: 
-
 ```bash
-python 5_fov_and_maps.py
+python 5_generate_fov_and_ctx.py
 ```
+*   Generuje pliki PNG dla każdego wybranego obiektu.
+*   **FOV:** Symulacja kadru Twojej kamery.
+*   **Context:** Mapa szerszego pola (szukacz/star hopping).
+*   Pliki lądują w folderze `data/starplots/`.
 
-- Korzysta z biblioteki `starplot`. 
-- Generuje pliki PNG w katalogu `starplots/`: 
-  - FOV czyli kadry optyczne (symulacja kamery). 
-  - Mapy kontekstowe (szersze pole widzenia).
-
-Pliki są w generowane w wysokiej rozdzielczości. Można to zmienić wewnątrz skryptu.
-
-### Krok 6: Generowanie stron obiektów
-
-Uruchom: 
-
+### Krok 6: Tworzenie stron obiektów
 ```bash
-python 6_drukuj_strony_obiektow.py
+python 6_generate_objects_pages.py
 ```
+*   Generuje szczegółowe strony PDF dla każdego obiektu (wykres wysokości w noc nowiu, wykres roczny, mapy, dane techniczne).
 
-- Składa szczegółowe strony dla każdego wybranego obiektu. 
-- Zawierają: 
-	- wykresy wysokości w najlepszej nocy (miesiąc według wariantu, w którym obiekt się pojawia) plus informacja, która noc w roku daje najdłuższe okno obserwacyjne, 
-	- FOV, 
-	- wykres rocznej widoczności z zaznaczeniem nocy według podanego wcześniej progu (w `2_ograniczenie_katalogu.py`), uwzględnia zmianę czasu z/na letni/zimowy,
-	- wykres liczby godzin z/bez księżyca w ciągu roku,
-	- mapę kontekstową. 
-- Tworzy **Część** 2 PDF: `Astrophotography_Planner_ROK_2.pdf`. 
-
-### Krok 7: Finalizacja
-
-Uruchom: 
-
+### Krok 7: Finalizacja (Scalanie PDF)
 ```bash
-python 7_polacz_pliki_pdf.py
+python 7_generate_result_pdf.py
 ```
-
-- Generuje stronę tytułową. 
-- Łączy część 1 i część 2 w jeden plik. 
-- Wynik końcowy: `Astrophotography_Planner_ROK_MIASTO.pdf`. 
+*   Dodaje stronę tytułową i informacyjną.
+*   Łączy wszystkie wygenerowane wcześniej PDF-y w jeden kompletny plik: `Astrophotography_Planner_ROK_MIASTO.pdf`.
 
 ---
 
-## 📝 Uwagi dodatkowe
+## 📂 Struktura plików
 
-- Wydajność: krok 3 i 5 wykorzystują wielowątkowość (`multiprocessing`). Mimo to obliczenia AstroPy i generowanie map może zająć sporo czasu w zależności od liczby obiektów i wydajności komputera.
-- TimeZone jest przypisywane na podstawie lokalizacji. Wpływa na obliczenia oraz  na wykres widoczności w skali roku.  
+*   `shared.py` – Plik konfiguracyjny współdzielony przez wszystkie skrypty. Zawiera ścieżki (`PATHS`), klasy konfiguracyjne (`UserConfig`, `CameraConfig`) oraz stałe astronomiczne.
+*   `analyse_catalog.py` – Narzędzie pomocnicze do statystycznej analizy pliku `katalog_astro_full.csv` (sprawdza kompletność danych, rozkład jasności itp.).
+*   `data/` – Katalog roboczy (tworzony automatycznie), w którym przechowywane są pliki tymczasowe, cache obliczeń, grafiki i wyniki.
 
----
+## ⚙️ Konfiguracja zaawansowana
+
+Większość parametrów podaje się interaktywnie w kroku 2. Jednak stałe systemowe można edytować w pliku `shared.py` oraz na początku poszczególnych skryptów (np. wagi punktacji w `2_plan_and_score.py`).
+
+*   **CATALOG_PRIORITY:** W `shared.py` określa, który katalog jest "ważniejszy" przy łączeniu nazw (np. NGC > IC > Sh2).
+*   **SCORING:** W `2_plan_and_score.py` znajdują się tabele punktacji (np. bonusy za obiekty Messiera, punkty za typ obiektu vs filtry wąskopasmowe).
 
 ## 📄 Licencja
 
-Projekt do użytku własnego. Korzysta z danych OpenNGC oraz serwisów VizieR.
+Projekt przeznaczony do użytku prywatnego i edukacyjnego. Nie jestem programistą ani astronomem. Zgłaszaj poprawki lub błędy, jeśli je zauważysz. 
 
-[OpenNGC](https://github.com/mattiaverga/OpenNGC/tree/master) to osobny projekt częściowo wykorzystywany w tym repozytorium.
-
-Nie jestem ani programistą ani astronomem. Programy są wynikiem vibecoding. Można powiedzieć, że pomogłem AI w ich napisaniu ;-)
-
----
-
-Jeżeli masz propozycje zmian, widzisz błędy, napisz: <morus@dominikanie.pl>. 
+Generowane mapy korzystają z danych z VizieR. [OpenNGC](https://github.com/mattiaverga/OpenNGC/tree/master) to osobny projekt częściowo wykorzystywany w tym repozytorium.
