@@ -1,4 +1,5 @@
 # 🔭 Astrophotography Planner & Atlas Generator
+[English version of README file](doc/README_ENG.md)
 
 Kompleksowy zestaw narzędzi w Pythonie służący do generowania spersonalizowanego, [rocznego planera i atlasu (skompresowany przykład)](doc/AP_compressed.pdf). System automatycznie pobiera dane o obiektach, filtruje je pod kątem Twojego sprzętu i lokalizacji, oblicza widoczność na przestrzeni roku, rozplanowuje obserwacje, a następnie generuje profesjonalny dokument PDF gotowy do druku.
 
