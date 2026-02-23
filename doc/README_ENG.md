@@ -3,7 +3,7 @@
 
 **Astrophotography Planner** is a comprehensive Python tool designed to generate a personalized, year-long imaging schedule and atlas. It tailors targets specifically to your geographical location, time, camera equipment, and local sky conditions (Bortle scale).
 
-![Sample page](strona_a)
+![Sample page](strona_a.png)
 
 The tool automates the entire process: from aggregating astronomical catalogs and calculating complex visibility windows (considering moon phases and twilight), to generating field-of-view (FOV) simulations and compiling a print-ready PDF book. [Here is an example, compressed however.](AP_compressed.pdf)
 
