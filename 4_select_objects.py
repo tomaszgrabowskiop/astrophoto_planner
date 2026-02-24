@@ -39,7 +39,7 @@ from matplotlib.table import Cell
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, AltAz, EarthLocation, get_sun, get_body
-
+import calendar
 import pytz
 
 """
@@ -181,7 +181,7 @@ def get_nm_day(year: int, month: int) -> int:
     Proste przybliżenie: sprawdzamy dni 1..28 w południe.
     """
     best_day, min_sep = 15, 360.0
-    for d in range(1, 29):
+    for d in range(1, calendar.monthrange(year, month)[1] + 1):
         t = Time(datetime(year, month, d, 12, 0))
         sep = get_sun(t).separation(get_body("moon", t)).deg
         if sep < min_sep:
@@ -535,13 +535,13 @@ def build_monthly_variants(
     print(f"       {'Miesiąc':<10} {'Śr. Score':<10} {'Liczba':<8} {'Status'}")
     print(f"       {'-'*45}")
     
-    MONTH_NAMES = ["Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Lip", "Sie", "Wrz", "Paź", "Lis", "Gru"]
+    M_TH = ["Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Lip", "Sie", "Wrz", "Paź", "Lis", "Gru"]
     
     for m in range(1, 13):
         m_scores = month_scores[m]
         avg_score = np.mean(m_scores) if m_scores else 0.0
         count = len(m_scores)
-        month_name = MONTH_NAMES[m-1]
+        month_name = M_TH[m-1]
         
         if avg_score >= 80: status = "🔥 ELITA (Top Obiekty)"
         elif avg_score >= 60: status = "✨ DOBRE (Solidne)"

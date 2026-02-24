@@ -42,9 +42,7 @@ import astropy.units as u
 import pytz
 from tqdm import tqdm
 from pathlib import Path
-import time
-# Importujemy nasze przydatne rzeczy ze skryptu "shared.py"
-# (wspólne ścieżki PATHS, klasy ustawień, stałe, i ważne: funkcje do hashów)
+
 from shared import (PATHS, 
                     fmt, print_step, print_green,
                     load_vis_data, save_vis_data, 

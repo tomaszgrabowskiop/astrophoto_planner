@@ -137,10 +137,10 @@ class CameraConfig:
 class UserConfig:
     year: int
     location: LocationConfig
-    min_altitude: float = 25.0       # params["minalt"]
-    sun_limit: float = -12.0         # params["sunlimit"]
-    min_hours: float = 3.0           # params["minhours"]
-    min_size_arcmin: float = 10.0    # params["minsizearcmin"]
+    min_altitude: float = 25.0       
+    sun_limit: float = -12.0         
+    min_hours: float = 3.0           
+    min_size_arcmin: float = 10.0    
     bortle_range: Tuple[int, int] = (8, 9)
     has_narrowband: bool = False
     prefer_famous: bool = True
@@ -254,13 +254,25 @@ CAT_ORDER: List[str] = list(CATALOG_PRIORITY.keys())  # zachowana kolejność
 # 4. STAŁE ALGORYTMU OBLICZENIOWEGO
 # =====================================================
 
-H_START = 15.0                                              # Początek okna (15:00)
-H_END = 33.0                                                  # Koniec okna (9:00 rano następnego dnia)
+H_START = 15.0                           # Początek okna (15:00)
+H_END = 33.0                             # Koniec okna (9:00 rano następnego dnia)
 H_RANGE = H_END - H_START
 H_Y_RANGE = int(H_RANGE - 1)             #Zakres osi Y na wykresie widoczności
 H_Y_START  = 1                                              # Zacząć od 0 + H_Y_START
-N_SAMPLES = int(H_RANGE * 60 / 5)   # Liczba próbek (co 5 minut)
-CROSSING_SAMPLES = 1440                   # Gęstość próbkowania dla algorytmu skrzyżowań (crossings)
+N_SAMPLES = int(H_RANGE * 60 / 5)        # Liczba próbek (co 5 minut)
+CROSSING_SAMPLES = 1440                  # Gęstość próbkowania dla algorytmu skrzyżowań (crossings)
+
+# Referencyjne przesunięcie UTC dla punktu odniesienia siatki (CET = +1h zimowy)
+
+# UWAGA: siatka obliczeniowa używa UTC noon (12:00 UTC) jako punktu bazowego.
+# H_START i H_END są w godzinach czasu lokalnego CET.
+
+# Offset od UTC noon do H_START: H_START - 12h (UTC) - TZ_REF = 15 - 12 - 1 = 2h
+# Offset od UTC noon do H_END:   H_END   - 12h (UTC) - TZ_REF = 33 - 12 - 1 = 20h
+
+TZ_REF_OFFSET   = 1.0                     # CET (zimowy; CEST dodaje +1h do rzeczywistego startu)
+H_NOON_TO_START = H_START - 12.0 - TZ_REF_OFFSET    # = 2.0
+H_NOON_TO_END   = H_END   - 12.0 - TZ_REF_OFFSET      # = 20.0
 
 
 # ═══════════════════════════════════════════
