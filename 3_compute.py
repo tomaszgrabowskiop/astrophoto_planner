@@ -48,6 +48,7 @@ from shared import (PATHS,
                     load_vis_data, save_vis_data, 
                     UserConfig,  
                     H_START, H_END, H_RANGE, N_SAMPLES, CROSSING_SAMPLES,
+                    H_NOON_TO_START, H_NOON_TO_END,
                     get_engine_raw_hash, get_engine_final_hash)
 
 # =====================================================
@@ -138,12 +139,13 @@ def mask_to_segments(mask, h_start=H_START, h_end=H_END) -> List[Tuple[float, fl
         ends_idx = ends_idx + [mask.size]
 
     segments = []
+    if mask.size < 2:
+        return segments
     t_grid = np.linspace(h_start, h_end, mask.size, endpoint=False)
 
     for s_i, e_i in zip(starts_idx, ends_idx):
         t_start = t_grid[s_i]
         t_end = t_grid[e_i] if e_i < mask.size else h_end
-
         start_rel = t_start - h_start
         end_rel = t_end - h_start
         if end_rel > start_rel:
@@ -286,7 +288,7 @@ def compute_raw_data(
     ])
 
     # Kiedy prowadzimy obserwacje w nocy (odstępy od południa)
-    t_night_offsets_hours = np.linspace(2, 19, N_SAMPLES)
+    t_night_offsets_hours = np.linspace(H_NOON_TO_START, H_NOON_TO_END, N_SAMPLES)
 
     # === OPTYMALIZACJA: WYLICZAMY SŁOŃCE TYLKO RAZ ===
     # Liczymy dane słoneczne RAZ na początku, żeby nie obciążać komputera powtarzaniem tego 
@@ -425,16 +427,16 @@ def process_raw_to_final(
         quality_mask = (o_alt > min_altitude) & (s_alt < sun_limit)
 
         # Relatywny czas tranzytu (maksimum wysokości obiektu) w godzinach od H_START
-        transit_rel = np.argmax(o_alt) * (H_RANGE / N_SAMPLES)
-
-        # Całkowita liczba godzin z dobrymi warunkami (quality_mask == True)
-        q_hours = np.sum(quality_mask) * (H_RANGE / N_SAMPLES)
-
-        # Liczba godzin z dobrymi warunkami i Księżycem pod horyzontem
-        m_hours = np.sum(quality_mask & (m_alt < 0.0)) * (H_RANGE / N_SAMPLES)
+        transit_rel = float(np.argmax(o_alt) * t_step)
 
         # Przedziały czasowe, w których quality_mask == True
         qual_segments = mask_to_segments(quality_mask)
+        q_hours = float(sum(e - s for s, e in qual_segments))
+        
+        # Przedziały "moonless" (dobrze + Księżyc poniżej horyzontu)
+        moonless_mask = quality_mask & (m_alt < 0.0)
+        moonless_segments = mask_to_segments(moonless_mask)
+        m_hours = float(sum(e - s for s, e in moonless_segments))
 
         # Wyliczenie punktów przecięcia Słońca z progiem sun_limit
         new_sun_pts: List[datetime] = []
@@ -507,7 +509,7 @@ def reprocess_to_final(
         for d in days
     ])
 
-    t_night_offsets_hours = np.linspace(2, 19, N_SAMPLES)
+    t_night_offsets_hours = np.linspace(H_NOON_TO_START, H_NOON_TO_END, N_SAMPLES)
     t_grid_all = days_noon[:, None] + t_night_offsets_hours[None, :] * u.hour
     obstime_all = t_grid_all.reshape(-1)
 
@@ -628,7 +630,7 @@ def reprocess_missing_final(
         datetime.combine(d.date(), datetime.min.time()) + timedelta(hours=12)
         for d in days
     ])
-    t_night_offsets_hours = np.linspace(2, 19, N_SAMPLES)
+    t_night_offsets_hours = np.linspace(H_NOON_TO_START, H_NOON_TO_END, N_SAMPLES)
     t_grid_all = days_noon[:, None] + t_night_offsets_hours[None, :] * u.hour
     obstime_all = t_grid_all.reshape(-1)
     frame_all = AltAz(obstime=obstime_all, location=location)
