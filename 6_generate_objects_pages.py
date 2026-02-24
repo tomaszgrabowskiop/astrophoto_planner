@@ -556,7 +556,7 @@ def main():
         page_num = 16  # numer pierwszej strony obiektu
 
         # Tworzenie paska postępu
-        pbar = tqdm(df.iterrows(), total=len(df), unit="obiekt", ncols=119)
+        pbar = tqdm(df.iterrows(), total=len(df), unit="obiekt", ncols=119, colour='green')
     
         for _, row in pbar:
             oid = row["id"]
