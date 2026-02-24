@@ -396,7 +396,15 @@ def normalize_all(raw: dict[str, pd.DataFrame]) -> pd.DataFrame:
         df["size"] = df["MajAx"].apply(safe_float)
         df["type"] = df["Type"]
         df["common_names"] = df["Common names"]
+        def _add_ngc_extra_common_names(row):
+            """Dodaje NGC_EXTRA_COMMON_NAMES do istniejących common names"""
+            orig = row['Common names'] or ''
+            extra = NGC_EXTRA_COMMON_NAMES.get(row['Name'].strip(), '')
+            if extra:
+                return f"{orig}, {extra}".strip(', ')
+            return orig
         
+        df['common_names'] = df.apply(_add_ngc_extra_common_names, axis=1)
         # Kolumny famous (Messier, Herschel, Caldwell)
         df = build_famous_columns(df)
         
