@@ -1,6 +1,6 @@
-```
-(.venv) wdrodze@iMacTG astrophoto_planner % python3 1_build_catalog.py 
 
+**% python3 1_build_catalog.py**
+```
 =======================================================================================================================
 ============================================ PARAMETRY FILTROWANIA KATALOGU =========================================== 
 =======================================================================================================================
@@ -109,9 +109,10 @@
 ================================================= KROK 2: Zapis danych ================================================
 [INFO] ZAPIS DO PLIKU: data/katalog_astro_full.csv
        Sukces! Zapisano 3 982 obiektów.
+```
 
-
-[INFO] Uruchomić pełną analizę katalogu? [y/n] (domyślnie y): 
+**[INFO] Uruchomić pełną analizę katalogu? [y/n] (domyślnie y):**
+```
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
        ANALIZA KATALOGU ASTRONOMICZNEGO  ›  data/katalog_astro_full.csv
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -197,9 +198,9 @@
   Pozostałości Supernowej (SNR)             8    0.2%      8.5      8.4     63.2'      37.6'
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-(.venv) wdrodze@iMacTG astrophoto_planner % python3 2_plan_and_score.py 
-
+```
+**% python3 2_plan_and_score.py**
+```
 =======================================================================================================================
 KROK 1: WYBÓR ROKU I LOKALIZACJI
 =======================================================================================================================
@@ -501,8 +502,9 @@ KROK 6. ZAPIS DANYCH DO VIS_DATA.JSON
 =======================================================================================================================
 
 [INFO] Zapisano 214 zoptymalizowanych kadrów do data/vis_data.json
-
-(.venv) wdrodze@iMacTG astrophoto_planner % python3 3_compute.py 
+```
+**% python3 3_compute.py**
+```
 [INFO] Brak poprzedniego stanu silnika (PATHS.engine_state).
 [INFO] W vis_data.json jest 214 obiektów.
        Ile obiektów przeliczyć? [domyślnie 108, Enter = wszystkie]: 
@@ -535,9 +537,9 @@ ENGINE: Smart Cache System
 =======================================================================================================================
 [INFO] Silnik zakończył pracę.
 =======================================================================================================================
-(.venv) wdrodze@iMacTG astrophoto_planner % python3 4_select_objects.py 
-Matplotlib is building the font cache; this may take a moment.
-
+```
+**% python3 4_select_objects.py**
+```
 =======================================================================================================================
        OPTYMALIZACJA MIESIĘCZNA I GENEROWANIE PLANERA
 =======================================================================================================================
@@ -627,7 +629,9 @@ Generowanie PDF.
 =======================================================================================================================
 
 [INFO] Planer roczny zapisany jako: Astrophotography_Planner_2026_1.pdf
-(.venv) wdrodze@iMacTG astrophoto_planner % python3 5_generate_fov_and_ctx.py 
+```
+**% python3 5_generate_fov_and_ctx.py**
+```
 =======================================================================================================================
 GENEROWANIE GRAFIK: FOV & MAPY KONTEKSTOWE
 =======================================================================================================================
@@ -643,25 +647,22 @@ GENEROWANIE GRAFIK: FOV & MAPY KONTEKSTOWE
 
 [INFO] Wybrano 108 obiektów (wszystkie z 'selected' w vis_data.json).
 
-[INFO] Generowanie kadrów FOV: 108 do zrobienia, 0 pominięto (już istnieją).
-100% ▕██████████████████████████████████████▏ (00:00:04.46 elapsed)     /108 [00:37<08:35,  5.06s/obj, ostatni=NGC6694]
-100% ▕██████████████████████████████████████▏ (00:00:04.40 elapsed)     
-100% ▕██████████████████████████████████████▏ (00:00:07.29 elapsed)     
-100% ▕██████████████████████████████████████▏ (00:00:02.05 elapsed)     
+[INFO] Generowanie kadrów FOV: 108 do zrobienia, 0 pominięto (już istnieją). 
        Engine FOV: 100%|████████████████████████████████████████████| 108/108 [04:02<00:00,  2.24s/obj, ostatni=IC1369]
 [INFO] Mamy łącznie 108 kadrów FOV.
 [INFO] Generowanie map kontekstowych: 108 do zrobienia, 0 pominięto (już istnieją).
        Engine CTX: 100%|███████████████████████████████████████████| 108/108 [10:09<00:00,  5.64s/obj, ostatni=NGC6847]
 [INFO] Mamy łącznie 108 map kontekstowych.
 
-
 [INFO] Gotowe. Wygenerowane pliki znajdują się w folderze /Users/wdrodze/Public/astrophoto_planner/data/starplots.
-(.venv) wdrodze@iMacTG astrophoto_planner % python3 6_generate_objects_pages.py 
+```
+**% python3 6_generate_objects_pages.py**
+```
 [INFO] Inicjalizacja danych.
        Generowanie CMAP: Sh2-82: 100%|███████████████████████████████████████████| 108/108 [10:59<00:00,  6.11s/obiekt]
-
 [INFO] Proces zakończony. Plik wynikowy: Astrophotography_Planner_2026_2.pdf.
-(.venv) wdrodze@iMacTG astrophoto_planner % python3 7_generate_result_pdf.py 
+```
+**% python3 7_generate_result_pdf.py**
+```
 [INFO] Pliki połączono z tytułem i stroną informacyjną w Astrophotography_Planner_2026_Poznań.pdf.
-(.venv) wdrodze@iMacTG astrophoto_planner % 
 ```
