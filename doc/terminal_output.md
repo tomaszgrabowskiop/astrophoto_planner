@@ -1,5 +1,6 @@
 
-**% python3 1_build_catalog.py**
+##% python3 1_build_catalog.py
+
 ```
 =======================================================================================================================
 ============================================ PARAMETRY FILTROWANIA KATALOGU =========================================== 
@@ -111,7 +112,8 @@
        Sukces! Zapisano 3 982 obiektów.
 ```
 
-**[INFO] Uruchomić pełną analizę katalogu? [y/n] (domyślnie y):**
+###[INFO] Uruchomić pełną analizę katalogu? [y/n] (domyślnie y):
+
 ```
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
        ANALIZA KATALOGU ASTRONOMICZNEGO  ›  data/katalog_astro_full.csv
@@ -199,7 +201,9 @@
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 ```
-**% python3 2_plan_and_score.py**
+
+##% python3 2_plan_and_score.py
+
 ```
 =======================================================================================================================
 KROK 1: WYBÓR ROKU I LOKALIZACJI
@@ -503,7 +507,9 @@ KROK 6. ZAPIS DANYCH DO VIS_DATA.JSON
 
 [INFO] Zapisano 214 zoptymalizowanych kadrów do data/vis_data.json
 ```
-**% python3 3_compute.py**
+
+##% python3 3_compute.py
+
 ```
 [INFO] Brak poprzedniego stanu silnika (PATHS.engine_state).
 [INFO] W vis_data.json jest 214 obiektów.
@@ -538,7 +544,9 @@ ENGINE: Smart Cache System
 [INFO] Silnik zakończył pracę.
 =======================================================================================================================
 ```
-**% python3 4_select_objects.py**
+
+##% python3 4_select_objects.py
+
 ```
 =======================================================================================================================
        OPTYMALIZACJA MIESIĘCZNA I GENEROWANIE PLANERA
@@ -630,7 +638,9 @@ Generowanie PDF.
 
 [INFO] Planer roczny zapisany jako: Astrophotography_Planner_2026_1.pdf
 ```
-**% python3 5_generate_fov_and_ctx.py**
+
+##% python3 5_generate_fov_and_ctx.py
+
 ```
 =======================================================================================================================
 GENEROWANIE GRAFIK: FOV & MAPY KONTEKSTOWE
@@ -656,13 +666,17 @@ GENEROWANIE GRAFIK: FOV & MAPY KONTEKSTOWE
 
 [INFO] Gotowe. Wygenerowane pliki znajdują się w folderze /Users/wdrodze/Public/astrophoto_planner/data/starplots.
 ```
-**% python3 6_generate_objects_pages.py**
+
+##% python3 6_generate_objects_pages.py
+
 ```
 [INFO] Inicjalizacja danych.
        Generowanie CMAP: Sh2-82: 100%|███████████████████████████████████████████| 108/108 [10:59<00:00,  6.11s/obiekt]
 [INFO] Proces zakończony. Plik wynikowy: Astrophotography_Planner_2026_2.pdf.
 ```
-**% python3 7_generate_result_pdf.py**
+
+##% python3 7_generate_result_pdf.py
+
 ```
 [INFO] Pliki połączono z tytułem i stroną informacyjną w Astrophotography_Planner_2026_Poznań.pdf.
 ```
