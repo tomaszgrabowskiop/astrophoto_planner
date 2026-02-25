@@ -49,14 +49,10 @@ Projekt wymaga Pythona 3.10+ oraz szeregu bibliotek astronomicznych i graficznyc
 >5. Wreszcie można spokojnie pobrać Astrophotography Planner z github: `git clone https://github.com/tomaszgrabowskiop/astrophoto_planner.git`
 >
 >6. Przejść do katalogu: `cd astrophoto_planner`.
->
->	Utworzyć środowisko: `python3 -m venv .venv`.
->
->	Uaktywnić je: `source .venv/bin/activate`.
->
->	Uaktualnić pip: `pip install --upgrade pip`.
->
->	Zainstalować wymagane przez project pakiety: `pip install -r requirements.txt`.
+> 	Utworzyć środowisko: `python3 -m venv .venv`.
+> 	Uaktywnić je: `source .venv/bin/activate`.
+> 	Uaktualnić pip: `pip install --upgrade pip`.
+> 	Zainstalować wymagane przez project pakiety: `pip install -r requirements.txt`.
 >
 >8. Wreszcie wywołujemy kolejne skrypty przez `python3 1_build_catalog.py` i tak dalej.
 >
