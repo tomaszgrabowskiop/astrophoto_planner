@@ -41,15 +41,17 @@ Projekt wymaga Pythona 3.10+ oraz szeregu bibliotek astronomicznych i graficznyc
 >Zakładam, że wiesz, jak znaleźć terminal i wykonać w nim podstawowe komendy typu `cd`, ale nie musisz nic wiedzieć o pythonie lub innych potrzebnych narzędziach. Wówczas ta instrukcja Ci się przyda. 
 >1. Najpierw trzeba się zaopatrzeć w Homebrew. Wpisz w terminalu: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh`
 >2. Gdy Homebrew jest na pokładzie, doinstalowujemy potrzebny pakiet narzędzi:`brew install proj`
-	>Instalator wykona szereg operacji i doinstaluje, co mu jest potrzebne.
->3. Następnie należy pobrać python z oficjalnej strony [python.org]([https://www.python.org/downloads/macos/](https://www.python.org/downloads/macos/)). Tutaj link do wersji MacOS. Linuksowcy dadzą sobie radę, bo najpewniej już mają zainstalowane środowisko programistyczne.
->4. Wreszcie można spokojnie pobrać Astrophotography Planner z github: `git clone https://github.com/tomaszgrabowskiop/astrophoto_planner.git`
->5. Przejść do katalogu: `cd astrophoto_planner`.
+>
+>Instalator wykona szereg operacji i doinstaluje, co mu jest potrzebne.
+>4. Następnie należy pobrać python z oficjalnej strony [python.org]([https://www.python.org/downloads/macos/](https://www.python.org/downloads/macos/)). Tutaj link do wersji MacOS. Linuksowcy dadzą sobie radę, bo najpewniej już mają zainstalowane środowisko programistyczne.
+>5. Wreszcie można spokojnie pobrać Astrophotography Planner z github: `git clone https://github.com/tomaszgrabowskiop/astrophoto_planner.git`
+>6. Przejść do katalogu: `cd astrophoto_planner`.
 >Utworzyć środowisko: `python3 -m venv .venv`.
 >Uaktywnić je: `source .venv/bin/activate`.
 >Uaktualnić pip: `pip install --upgrade pip`.  
 >Zainstalować wymagane przez project pakiety: `pip install -r requirements.txt`.
->6. Wreszcie wywołujemy kolejne skrypty przez `python3 1_build_catalog.py` i tak dalej. 
+>7. Wreszcie wywołujemy kolejne skrypty przez `python3 1_build_catalog.py` i tak dalej.
+>
 >W trakcie pierwszego uruchamiania skryptów, będą dociągać potrzebne im narzędzia. Za drugim i kolejnymi razami będzie nieco krócej. 
 
 ## Jak używać?
