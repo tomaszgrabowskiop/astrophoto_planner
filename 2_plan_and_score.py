@@ -874,7 +874,7 @@ def apply_adaptive_soft_cut(
     df = df[df["final_score"] >= base_min_score].reset_index(drop=True)
     after = len(df)
     print_step(f"Zastosowano ostre cięcie dla obiektw z wynikiem < {base_min_score:.1f} pkt.")
-    print(f"[INFO] Pozostało {fmt(after)} obiektów z {fmt(before)}.")
+    print(f"       Pozostało {fmt(after)} obiektów z {fmt(before)}.")
     
     if df.empty:
         return df
@@ -896,7 +896,7 @@ def apply_adaptive_soft_cut(
     
     print(f"[INFO] Wartości wyliczone przez cięcie adaptacyjne: "
           f"final_score >= p{lower_tail_percent:.0f} ({pcut:.1f}).")
-    print(f"[INFO] Pozostało {fmt(after2)} obiektów z {fmt(before2)}.")
+    print(f"       Pozostało {fmt(after2)} obiektów z {fmt(before2)}.")
 
     return df
 
@@ -1066,7 +1066,7 @@ def main():
     
     # Sortowanie końcowe (najlepsze na górę)
     df_final = df_final.sort_values(by=["final_score"], ascending=[False]).reset_index(drop=True)
-    print(f"    ✓ Pozostało {fmt(len(df_final))} finalnych kadrów.")
+    print(f"         Pozostało {fmt(len(df_final))} finalnych kadrów.")
 
     # ---------------------------------------------------------
     # 10. ZAPIS DO JSON I WYŚWIETLENIE

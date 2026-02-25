@@ -37,12 +37,30 @@ Projekt wymaga Pythona 3.10+ oraz szeregu bibliotek astronomicznych i graficznyc
     
     **UWAGA: pandas musi być poniżej wersji 3.0!** W przeciwnym razie `starplots` nie generuje map z kolorystycznym różnicowaniem gwiazd.
 
-3.  **Przygotowanie danych:**
-    Upewnij się, że w folderze `data/` znajduje się plik `NGC.csv` (baza [OpenNGC](https://github.com/mattiaverga/OpenNGC/tree/master)).
+3. **Instrukcja instalacji dla mniej zaawansowanych na MacOS (i pewnie Linuxach)**
+    Zakładam, że wiesz, jak znaleźć terminal i wykonać w nim podstawowe komendy typu `cd`, ale nie musisz nic wiedzieć o pythonie lub innych potrzebnych narzędziach. Wówczas ta instrukcja Ci się przyda. 
+    1. Najpierw trzeba się zaopatrzeć w Homebrew. Wpisz w terminalu: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh`
+    2. Gdy Homebrew jest na pokładzie, doinstalowujemy potrzebny pakiet narzędzi:`brew install proj`<br/>
 
-##Jak używać?
+	Instalator wykona szereg operacji i doinstaluje, co mu jest potrzebne.
 
-Proces składa się z 7 kroków, które należy uruchamiać sekwencyjnie. Każdy skrypt korzysta z danych wygenerowanych przez poprzedni.
+    4. Następnie należy pobrać python z oficjalnej strony [python.org](https://www.python.org/downloads/macos/). Tutaj link do wersji MacOS. Linuksowcy dadzą sobie radę, bo najpewniej już mają zainstalowane środowisko programistyczne.
+    
+    5. Wreszcie można spokojnie pobrać Astrophotography Planner z github: `git clone https://github.com/tomaszgrabowskiop/astrophoto_planner.git`
+    
+    6. Przejść do katalogu: `cd astrophoto_planner`.<br/>
+     	Utworzyć środowisko: `python3 -m venv .venv`.<br/>
+     	Uaktywnić je: `source .venv/bin/activate`.<br/>
+     	Uaktualnić pip: `pip install --upgrade pip`.<br/>
+     	Zainstalować wymagane przez project pakiety: `pip install -r requirements.txt`.<br/>
+    
+    7. Wreszcie wywołujemy kolejne skrypty przez `python3 1_build_catalog.py` i tak dalej.<br/>
+    
+        W trakcie pierwszego uruchamiania skryptów, będą dociągać potrzebne im narzędzia. Za drugim i kolejnymi razami będzie nieco krócej. 
+
+## Jak tego używać?
+
+Proces składa się z 7 kroków, które należy uruchamiać sekwencyjnie. Każdy skrypt korzysta z danych wygenerowanych przez poprzedni. Możesz obejrzeć, jak wygląda [output z termianal](doc/terminal_output.md).
 
 ### Krok 1: Budowa katalogu
 ```bash
