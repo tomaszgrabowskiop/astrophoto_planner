@@ -16,7 +16,9 @@ duckdb==1.4.4
 flatbuffers==25.12.19
 fonttools==4.61.1
 geoarrow-types==0.3.0
+geographiclib==2.1
 geopandas==1.1.2
+geopy==2.4.1
 h3==4.4.2
 html5lib==1.1
 ibis-framework==12.0.0
