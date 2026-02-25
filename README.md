@@ -40,7 +40,7 @@ Projekt wymaga Pythona 3.10+ oraz szeregu bibliotek astronomicznych i graficznyc
 3.  **Przygotowanie danych:**
     Upewnij się, że w folderze `data/` znajduje się plik `NGC.csv` (baza [OpenNGC](https://github.com/mattiaverga/OpenNGC/tree/master)).
 
-##Jak używać?
+## Jak używać?
 
 Proces składa się z 7 kroków, które należy uruchamiać sekwencyjnie. Każdy skrypt korzysta z danych wygenerowanych przez poprzedni.
 
