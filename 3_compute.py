@@ -401,7 +401,9 @@ def process_raw_to_final(
     results: List[Dict[str, Any]] = []
 
     # Krok czasowy w godzinach między kolejnymi próbkami w siatce
-    t_step = H_RANGE / (N_SAMPLES - 1)
+    t_step = H_RANGE / (N_SAMPLES - 1) 
+    # "-1": żeby wizualnie mieściło się w obrębie nocy, nie jest to idealne piec minut, a 5:02, 
+    # ale dzięki temu wchodzi w "klepsydrę" i ładnie się prezentuje na wykresie.
 
     # Strefa czasowa z vis_data.json
     tz_name = vis["location"]["tz"]
