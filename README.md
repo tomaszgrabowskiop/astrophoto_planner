@@ -44,7 +44,7 @@ Projekt wymaga Pythona 3.10+ oraz szeregu bibliotek astronomicznych i graficznyc
 
 	Instalator wykona szereg operacji i doinstaluje, co mu jest potrzebne.
 
-    4. Następnie należy pobrać python z oficjalnej strony [python.org]([https://www.python.org/downloads/macos/](https://www.python.org/downloads/macos/)). Tutaj link do wersji MacOS. Linuksowcy dadzą sobie radę, bo najpewniej już mają zainstalowane środowisko programistyczne.
+    4. Następnie należy pobrać python z oficjalnej strony [python.org]([https://www.python.org/downloads/macos/]. Tutaj link do wersji MacOS. Linuksowcy dadzą sobie radę, bo najpewniej już mają zainstalowane środowisko programistyczne.
     
     5. Wreszcie można spokojnie pobrać Astrophotography Planner z github: `git clone https://github.com/tomaszgrabowskiop/astrophoto_planner.git`
     
