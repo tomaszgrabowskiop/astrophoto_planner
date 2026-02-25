@@ -642,11 +642,29 @@ def plot_month_variant(
             coord = SkyCoord(ra * u.deg, dec * u.deg)
             o_alt = coord.transform_to(altaz).alt.deg
             
-            # 1. Budujemy dynamicznie tekst "sławy" z intów
+            # 1. Budujemy dynamicznie tekst "sławy" (obsługa: int albo lista intów)
             famous_labels = []
-            if obj.get("messier_nr", 0) > 0:  famous_labels.append(f"M{obj['messier_nr']}")
-            if obj.get("caldwell_nr", 0) > 0: famous_labels.append(f"C{obj['caldwell_nr']}")
-            if obj.get("herschel_nr", 0) > 0: famous_labels.append(f"H{obj['herschel_nr']}")
+            
+            def _add_labels(key: str, prefix: str):
+                v = obj.get(key, [])
+                if v is None:
+                    return
+                if not isinstance(v, list):
+                    v = [v]
+                vals = set()
+                for x in v:
+                    try:
+                        ix = int(x)
+                    except Exception:
+                        continue
+                    if ix > 0:
+                        vals.add(ix)
+                for ix in sorted(vals):
+                    famous_labels.append(f"{prefix}{ix}")
+            
+            _add_labels("messier_nr", "M")
+            _add_labels("caldwell_nr", "C")
+            _add_labels("herschel_nr", "H")
             
             famous_str = f" ({', '.join(famous_labels)})" if famous_labels else ""
             
