@@ -34,7 +34,7 @@ from typing import Tuple, List, Dict, Any
 import hashlib
 import ssl
 import certifi
-
+from geopy.geocoders import Nominatim
 import astropy.units as u
 from astropy.coordinates import SkyCoord, EarthLocation
 from astropy.time import Time
@@ -143,6 +143,33 @@ def _as_bool(x: Any) -> bool:
     if isinstance(x, (int, float)):
         return bool(int(x))
     return str(x).strip().lower() in ("1", "true", "t", "yes", "y")
+
+def _as_int_list(x: Any) -> List[int]:
+    if x is None:
+        return []
+    if isinstance(x, (list, tuple, set)):
+        out = []
+        for v in x:
+            if v is None or (isinstance(v, float) and np.isnan(v)):
+                continue
+            try:
+                iv = int(v)
+                if iv > 0:
+                    out.append(iv)
+            except Exception:
+                pass
+        return sorted(set(out))
+    # dopiero tu bezpiecznie używaj pd.isna dla skalarów
+    try:
+        if pd.isna(x):
+            return []
+    except Exception:
+        pass
+    try:
+        iv = int(x)
+        return [iv] if iv > 0 else []
+    except Exception:
+        return []
 
 def format_indeksy(extra_info: str) -> str:
     """
@@ -467,12 +494,12 @@ class SessionConfigManager:
         
         if choice == "1":
             loc = {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
-            print(f"Wybrano {loc['name']} ({loc['lat']}N, {loc['lon']}E)")
+            print(f"Wybrano {loc['name']} ({loc['lat']}°N, {loc['lon']}°E)")
             return year, loc
             
         if choice == "2":
             loc = {"lat": 50.0647, "lon": 19.9450, "tz": "Europe/Warsaw", "name": "Kraków, Polska"}
-            print(f"Wybrano {loc['name']} ({loc['lat']}N, {loc['lon']}E)")
+            print(f"Wybrano {loc['name']} ({loc['lat']}°N, {loc['lon']}°E)")
             return year, loc
             
         city = input("Podaj lokalizację (pisz wielką literą, działa lepiej, np. 'Toruń, Polska'): ").strip()
@@ -481,10 +508,14 @@ class SessionConfigManager:
             loc = {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
             return year, loc
         try:
-            print(f"[INFO] Szukanie współrzędnych dla '{city}'...")
-            loc_astro = EarthLocation.of_address(city)
-            lat = loc_astro.lat.to(u.deg).value
-            lon = loc_astro.lon.to(u.deg).value
+            geolocator = Nominatim(user_agent="astro_plan_app_v2")
+            location_geo = geolocator.geocode(city)
+
+            if location_geo is None:
+                raise ValueError(f"Nie znaleziono lokalizacji: {city}")
+
+            lat = location_geo.latitude
+            lon = location_geo.longitude	
             
             tf = TimezoneFinder()
             tz_name = tf.timezone_at(lng=lon, lat=lat)
@@ -492,13 +523,13 @@ class SessionConfigManager:
                 tz_name = "Europe/Warsaw"
                 
             loc = {"lat": lat, "lon": lon, "tz": tz_name, "name": city}
-            print(f"[INFO] Znaleziono: {loc['name']} {loc['lat']:.4f}N, {loc['lon']:.4f}E, strefa czasowa: {tz_name}")
+            print(f"[INFO] Znaleziono: {loc['name']} {loc['lat']:.4f}°N, {loc['lon']:.4f}°E, strefa czasowa: {tz_name}")
             return year, loc
             
         except Exception as e:
             print(f"Błąd geokodowania ({e}), używam Poznań.")
             loc = {"lat": 52.4095, "lon": 16.9319, "tz": "Europe/Warsaw", "name": "Poznań, Polska"}
-            return year, loc
+        return year, loc
 
 def get_user_prefs() -> Dict[str, Any]:
     cam = CameraConfig()
@@ -714,19 +745,19 @@ def optimize_atlas_pages(df: pd.DataFrame, user_params: Dict[str, Any]) -> pd.Da
 
         leader["common_names"] = ", ".join(sorted(c_names)) if c_names else ""
 
-        # 4. SŁAWA (MAX, aby zachować flagę na kadrze)
-        m_max = _as_int0(leader.get("messier_nr"))
-        c_max = _as_int0(leader.get("caldwell_nr"))
-        h_max = _as_int0(leader.get("herschel_nr"))
+        # 4. SŁAWA — zbierz wszystkie indeksy z klastra
+        m_set = set(_as_int_list(leader.get("messier_nr")))
+        c_set = set(_as_int_list(leader.get("caldwell_nr")))
+        h_set = set(_as_int_list(leader.get("herschel_nr")))
         
         for _, row_n in subset.iterrows():
-            m_max = max(m_max, _as_int0(row_n.get("messier_nr")))
-            c_max = max(c_max, _as_int0(row_n.get("caldwell_nr")))
-            h_max = max(h_max, _as_int0(row_n.get("herschel_nr")))
-
-        leader["messier_nr"] = m_max
-        leader["caldwell_nr"] = c_max
-        leader["herschel_nr"] = h_max
+            m_set.update(_as_int_list(row_n.get("messier_nr")))
+            c_set.update(_as_int_list(row_n.get("caldwell_nr")))
+            h_set.update(_as_int_list(row_n.get("herschel_nr")))
+        
+        leader["messier_nr"] = sorted(m_set)
+        leader["caldwell_nr"] = sorted(c_set)
+        leader["herschel_nr"] = sorted(h_set)
 
         # 5. BEST ID (Mądry wybór wg wielkości/jasności w klastrze)
         candidates_for_best = []
@@ -1079,9 +1110,9 @@ def main():
         }
         
         # Zapisz konkretne numery z katalogów (0 oznacza brak przynależności)
-        obj_dict["messier_nr"] = _as_int0(row.get("messier_nr"))
-        obj_dict["caldwell_nr"] = _as_int0(row.get("caldwell_nr"))
-        obj_dict["herschel_nr"] = _as_int0(row.get("herschel_nr"))
+        obj_dict["messier_nr"]  = _as_int_list(row.get("messier_nr"))
+        obj_dict["caldwell_nr"] = _as_int_list(row.get("caldwell_nr"))
+        obj_dict["herschel_nr"] = _as_int_list(row.get("herschel_nr"))
         
         json_objects.append(obj_dict)
 
