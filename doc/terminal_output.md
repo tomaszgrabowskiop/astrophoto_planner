@@ -1,4 +1,4 @@
-`
+```
 (.venv) wdrodze@iMacTG astrophoto_planner % python3 1_build_catalog.py 
 
 =======================================================================================================================
@@ -664,4 +664,4 @@ GENEROWANIE GRAFIK: FOV & MAPY KONTEKSTOWE
 (.venv) wdrodze@iMacTG astrophoto_planner % python3 7_generate_result_pdf.py 
 [INFO] Pliki połączono z tytułem i stroną informacyjną w Astrophotography_Planner_2026_Poznań.pdf.
 (.venv) wdrodze@iMacTG astrophoto_planner % 
-`
+```
