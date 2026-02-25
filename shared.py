@@ -331,25 +331,33 @@ def extract_famous_labels(extra_info: str) -> List[str]:
             result.append(label)
     return result
 
+def _as_int_list_any(v) -> List[int]:
+    if v is None:
+        return []
+    if isinstance(v, (list, tuple, set)):
+        out = []
+        for x in v:
+            try:
+                ix = int(x)
+                if ix > 0:
+                    out.append(ix)
+            except Exception:
+                pass
+        return sorted(set(out))
+    try:
+        ix = int(v)
+        return [ix] if ix > 0 else []
+    except Exception:
+        return []
+
 def build_badge(row) -> str:
     badges = []
-
-    m = row.get("messier_nr")
-    c = row.get("caldwell_nr")
-    h = row.get("herschel_nr")
-
-    # zabezpieczenie na None / puste
-    m = int(m) if m not in (None, "") else 0
-    c = int(c) if c not in (None, "") else 0
-    h = int(h) if h not in (None, "") else 0
-
-    if m > 0:
+    for m in _as_int_list_any(row.get("messier_nr")):
         badges.append(f"M{m}")
-    if c > 0:
+    for c in _as_int_list_any(row.get("caldwell_nr")):
         badges.append(f"C{c}")
-    if h > 0:
+    for h in _as_int_list_any(row.get("herschel_nr")):
         badges.append(f"H{h}")
-
     return f" [{', '.join(badges)}]" if badges else ""
 
 # Funkcje hashujące
