@@ -826,7 +826,7 @@ def merge_by_common_names(df: pd.DataFrame) -> pd.DataFrame:
 
     result = pd.DataFrame(merged_rows).reset_index(drop=True)
     n_before, n_after = len(df), len(result)
-    print(f"  Etap 0: {n_before} → {n_after} obiektów (scalono {n_before - n_after} duplikatów nazewniczych)")
+    print(f"       {n_before} → {n_after} obiektów (scalono {n_before - n_after} duplikatów nazewniczych)")
     return result
 
 # === 4. UZUPEŁNIANIE DANYCH ===
