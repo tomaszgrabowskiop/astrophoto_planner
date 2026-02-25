@@ -58,9 +58,9 @@ Projekt wymaga Pythona 3.10+ oraz szeregu bibliotek astronomicznych i graficznyc
     
         W trakcie pierwszego uruchamiania skryptów, będą dociągać potrzebne im narzędzia. Za drugim i kolejnymi razami będzie nieco krócej. 
 
-## Jak używać?
+## Jak tego używać?
 
-Proces składa się z 7 kroków, które należy uruchamiać sekwencyjnie. Każdy skrypt korzysta z danych wygenerowanych przez poprzedni.
+Proces składa się z 7 kroków, które należy uruchamiać sekwencyjnie. Każdy skrypt korzysta z danych wygenerowanych przez poprzedni. Możesz obejrzeć, jak wygląda [output z termianal](doc/terminal_output.md).
 
 ### Krok 1: Budowa katalogu
 ```bash
