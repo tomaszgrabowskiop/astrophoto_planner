@@ -499,13 +499,13 @@ def generate_fov_pngs(objs: List[Dict[str, Any]], camera_conf: CameraConfig) -> 
                 try:
                     out_path = future.result()
                 except Exception as e:
-                    print(f"[INFO] Błąd przy obiekcie {obj_id}: {e}")
+                    tqdm.write(f"[INFO] Błąd przy obiekcie {obj_id}: {e}")
                     out_path = None
 
                 if out_path is not None:
                     all_results[obj_id] = out_path
 
-                pbar.set_postfix_str(f"ostatni={obj_id}")
+                pbar.set_postfix_str(f"ostatni={obj_id}",  refresh=False)
                 pbar.update(1)
 
     valid_paths = list(all_results.values())
@@ -548,13 +548,13 @@ def generate_context_pngs(objs: List[Dict[str, Any]]) -> List[Path | None]:
                 try:
                     out_path = future.result()
                 except Exception as e:
-                    print(f"[INFO] Błąd przy mapie kontekstowej dla {obj_id}: {e}")
+                    tqdm.write(f"[INFO] Błąd przy mapie kontekstowej dla {obj_id}: {e}")
                     out_path = None
 
                 if out_path is not None:
                     all_results[obj_id] = out_path
 
-                pbar.set_postfix_str(f"ostatni={obj_id}")
+                pbar.set_postfix_str(f"ostatni={obj_id}", refresh=False)
                 pbar.update(1)
 
     valid_paths = list(all_results.values())
